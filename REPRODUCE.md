@@ -7,7 +7,11 @@ This document provides step-by-step instructions for independently reproducing o
 ```bash
 git clone https://github.com/yourusername/procedural-ltm
 cd procedural-ltm
+pip install -r requirements.txt
+python run_200_test_benchmark.py
 ```
+
+**Expected output:** 198/200 tests pass (99% accuracy)
 
 #### 1. Clone Repository
 ```bash
@@ -40,7 +44,7 @@ pip install -r requirements.txt
 
 #### 4. Run Benchmark
 ```bash
-python generate_200_tests.py
+python run_200_test_benchmark.py
 ```
 
 ### Expected Output
@@ -96,7 +100,7 @@ The benchmark is fully deterministic. Running it multiple times produces identic
 ```bash
 # Run 5 times
 for i in {1..5}; do
-    python generate_200_tests.py | grep "Accuracy:"
+    python run_200_test_benchmark.py | grep "Accuracy:"
 done
 ```
 

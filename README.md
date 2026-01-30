@@ -61,7 +61,7 @@ Our benchmark is **fully reproducible** and **independently verifiable**:
 git clone https://github.com/yourusername/procedural-ltm
 cd procedural-ltm
 pip install -r requirements.txt
-python generate_200_tests.py
+python run_200_test_benchmark.py
 ```
 
 **Expected output:** 198/200 tests pass (99% accuracy)
@@ -107,7 +107,7 @@ cp .env.example .env
 
 ```bash
 # Run 200-test comprehensive benchmark
-python generate_200_tests.py
+python run_200_test_benchmark.py
 
 # All tests (100% conflict resolution benchmark - 60/60)
 pytest tests/ -v

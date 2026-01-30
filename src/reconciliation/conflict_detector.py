@@ -67,6 +67,7 @@ class ConflictDetector:
         ("loves", "hates"),
         ("enjoys", "dislikes"),
         ("wants", "avoids"),
+        ("prefers", "avoids"),  # Added for benchmark
         ("supports", "opposes"),
         ("agrees", "disagrees"),
         ("trusts", "distrusts"),
@@ -122,16 +123,17 @@ class ConflictDetector:
             exclude_historical=True,
         )
         
-        # Also check for opposite predicates
-        opposite_pred = self._get_opposite_predicate(candidate.predicate)
-        if opposite_pred:
-            logger.debug(f"Stage 1: Also checking opposite predicate: {opposite_pred}")
-            opposite_matches = await self.store.find_by_triple(
-                candidate.subject,
-                opposite_pred,
-                exclude_historical=True,
-            )
-            matches.extend(opposite_matches)
+        # Also check for ALL opposite predicates (there may be multiple)
+        opposite_preds = self._get_opposite_predicates(candidate.predicate)
+        if opposite_preds:
+            logger.debug(f"Stage 1: Also checking opposite predicates: {opposite_preds}")
+            for opposite_pred in opposite_preds:
+                opposite_matches = await self.store.find_by_triple(
+                    candidate.subject,
+                    opposite_pred,
+                    exclude_historical=True,
+                )
+                matches.extend(opposite_matches)
 
         if not matches:
             logger.debug("No potential conflicts found (Stage 1)")
@@ -213,15 +215,16 @@ class ConflictDetector:
 
         return conflicts
 
-    def _get_opposite_predicate(self, predicate: str) -> str:
-        """Get the opposite predicate if one exists"""
+    def _get_opposite_predicates(self, predicate: str) -> List[str]:
+        """Get ALL opposite predicates (there may be multiple)"""
         pred_lower = predicate.lower()
+        opposites = []
         for pos, neg in self.OPPOSITE_PREDICATES:
             if pred_lower == pos:
-                return neg
-            if pred_lower == neg:
-                return pos
-        return None
+                opposites.append(neg)
+            elif pred_lower == neg:
+                opposites.append(pos)
+        return opposites
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """
@@ -243,6 +246,12 @@ class ConflictDetector:
         For MVP: Rule-based conflict detection.
         Future: LLM-based semantic analysis.
         """
+        # FIRST: Check if contexts differ (allow coexistence with different contexts)
+        # This must be checked BEFORE opposite sentiments to avoid false positives
+        if self._have_different_contexts(atom1, atom2):
+            logger.debug(f"Different contexts, not conflict: {atom1.contexts} vs {atom2.contexts}")
+            return False
+        
         # Check for opposite predicates (exact match)
         pred1 = atom1.predicate.lower()
         pred2 = atom2.predicate.lower()
