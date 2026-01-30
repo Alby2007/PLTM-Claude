@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from loguru import logger
 
-from src.pipeline.orchestrator import MemoryPipeline
+from src.pipeline.memory_pipeline import MemoryPipeline
 
 
 @dataclass

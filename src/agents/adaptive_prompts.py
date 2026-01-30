@@ -20,7 +20,7 @@ from enum import Enum
 from loguru import logger
 
 from src.core.models import AtomType
-from src.pipeline.orchestrator import MemoryPipeline
+from src.pipeline.memory_pipeline import MemoryPipeline
 
 
 class ExpertiseLevel(str, Enum):

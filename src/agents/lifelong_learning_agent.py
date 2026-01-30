@@ -20,9 +20,9 @@ from datetime import datetime
 from loguru import logger
 
 from src.core.models import MemoryAtom, AtomType
-from src.storage.graph_store import SQLiteGraphStore
+from src.storage.sqlite_store import SQLiteGraphStore
 from src.extraction.rule_based import RuleBasedExtractor
-from src.pipeline.orchestrator import MemoryPipeline
+from src.pipeline.memory_pipeline import MemoryPipeline
 
 
 class LifelongLearningAgent:
