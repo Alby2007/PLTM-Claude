@@ -27,8 +27,10 @@ from loguru import logger
 from src.core.models import MemoryAtom, AtomType, Provenance, GraphType
 from src.storage.sqlite_store import SQLiteGraphStore
 from src.extraction.rule_based import RuleBasedExtractor
+from src.extraction.hybrid_extractor import HybridExtractor
 from src.reconciliation.conflict_detector import ConflictDetector
 from src.reconciliation.semantic_detector import SemanticConflictDetector
+from src.reconciliation.semantic_conflict_detector_v2 import SemanticConflictDetectorV2
 
 # Import test suites
 from tests.benchmarks.tier1_semantic_conflicts import get_semantic_tests
@@ -39,11 +41,20 @@ from tests.benchmarks.tier3_adversarial import get_adversarial_tests
 class Comprehensive300Benchmark:
     """Run all 300 tests and generate detailed report"""
     
-    def __init__(self):
+    def __init__(self, use_hybrid: bool = True):
         self.store = SQLiteGraphStore(":memory:")
-        self.extractor = RuleBasedExtractor()
+        self.use_hybrid = use_hybrid
+        
+        # Use HybridExtractor if enabled, otherwise RuleBasedExtractor
+        if use_hybrid:
+            self.extractor = HybridExtractor()
+            logger.info("Using HybridExtractor (LLM + Rule-based)")
+        else:
+            self.extractor = RuleBasedExtractor()
+            logger.info("Using RuleBasedExtractor only")
+        
         self.detector = ConflictDetector(self.store)
-        self.semantic_detector = SemanticConflictDetector()  # NEW: Semantic detector
+        self.semantic_detector = SemanticConflictDetectorV2()  # V2 with LLM fallback
         
         # Results tracking
         self.results = {
@@ -160,9 +171,13 @@ class Comprehensive300Benchmark:
         """
         stmt1, stmt2 = test["statements"]
         
-        # Use actual RuleBasedExtractor
-        atoms1 = self.extractor.extract(stmt1, "user_1")
-        atoms2 = self.extractor.extract(stmt2, "user_1")
+        # Use extractor (HybridExtractor or RuleBasedExtractor)
+        if self.use_hybrid:
+            atoms1 = await self.extractor.extract(stmt1, "user_1")
+            atoms2 = await self.extractor.extract(stmt2, "user_1")
+        else:
+            atoms1 = self.extractor.extract(stmt1, "user_1")
+            atoms2 = self.extractor.extract(stmt2, "user_1")
         
         # If extraction failed, test fails
         if not atoms1 or not atoms2:
@@ -180,12 +195,12 @@ class Comprehensive300Benchmark:
             expected_conflict = test["expected"] == "conflict"
             return expected_conflict
         
-        # If rule-based didn't find conflict, try semantic detector
-        semantic_conflict = self.semantic_detector.detect_semantic_conflict(atom1, atom2)
+        # If rule-based didn't find conflict, try semantic detector V2
+        has_conflict, reasoning = await self.semantic_detector.detect_conflict(atom1, atom2)
         
         # Check if result matches expectation
         expected_conflict = test["expected"] == "conflict"
-        detected_conflict = semantic_conflict is not None
+        detected_conflict = has_conflict
         
         # Clean up for next test
         await self.store.close()
