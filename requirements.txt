@@ -1,0 +1,32 @@
+# Core
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+
+# API
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Grammar-constrained generation
+outlines>=0.1.12
+
+# ML Models
+transformers==4.47.1
+torch==2.2.2
+accelerate==1.2.1
+
+# Storage
+aiosqlite==0.20.0
+
+# Utilities
+loguru==0.7.3
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+
+# Development
+black==24.10.0
+ruff==0.8.4
+mypy==1.13.0
