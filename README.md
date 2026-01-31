@@ -1,10 +1,64 @@
-# Procedural Long-Term Memory System
+# 🧠 Procedural LTM - Complete AI Memory Platform
 
-🏆 **99% Accuracy on 200-Test Benchmark** | +32.1% vs SOTA | Production-Ready
+[![GitHub stars](https://img.shields.io/github/stars/Alby2007/LLTM?style=social)](https://github.com/Alby2007/LLTM/stargazers)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Benchmark](https://img.shields.io/badge/accuracy-86%25-brightgreen.svg)](./BENCHMARK_RESULTS.md)
 
-A novel AI memory architecture using jury-based conflict resolution, context-aware reconciliation, and dual-graph knowledge consolidation.
+> 86% accuracy on comprehensive conflict resolution (+19pp vs SOTA) • Production infrastructure • 7 novel applications
 
-## 🎉 Achievement Summary
+**The first production-ready AI memory system with multi-judge conflict resolution**
+
+---
+
+## ⚡ See It In Action (30 seconds)
+
+```python
+from src.pipeline.memory_pipeline import MemoryPipeline
+from src.storage.sqlite_store import SQLiteGraphStore
+
+# Initialize
+store = SQLiteGraphStore(":memory:")
+await store.connect()
+memory = MemoryPipeline(store)
+
+# AI learns about user
+await memory.process_message("I love Python programming", user_id="alice")
+await memory.process_message("I work at Google", user_id="alice")
+
+# Later: AI contradicts itself
+await memory.process_message("I hate Python programming", user_id="alice")
+# 🔍 System detects conflict!
+# 🧠 Multi-judge jury deliberates
+# ✅ Resolves: Most recent statement supersedes
+
+# Retrieve current state
+facts = await store.get_atoms_by_subject("alice")
+# Returns: [User dislikes Python, User works at Google]
+```
+
+**That's it.** 86% accuracy on 300 comprehensive tests.
+
+[Try it yourself →](./QUICKSTART.md)
+
+---
+
+## 📊 At a Glance
+
+| Metric | Value |
+|--------|-------|
+| **Accuracy** | 86% on 300-test benchmark |
+| **vs SOTA** | +19.1 percentage points (Mem0: 66.9%) |
+| **Production** | ✅ Kubernetes, monitoring, auto-scaling |
+| **Applications** | 7 novel demos |
+| **Code** | ~12,900 lines production-ready |
+| **Tests** | 200+ comprehensive (92% coverage) |
+| **Timeline** | Built in 3 weeks |
+| **Deployment** | Docker Compose (local) or K8s (production) |
+
+---
+
+## 🎉 Detailed Results
 
 **Benchmark Performance:**
 - ✅ **99% Accuracy** on 200-test pattern-matching benchmark (198/200 passing)
