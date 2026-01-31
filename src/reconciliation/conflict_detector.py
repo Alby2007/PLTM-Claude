@@ -13,12 +13,13 @@ Accuracy: 100% on benchmark (vs 66.9% for Mem0 baseline)
 """
 
 from difflib import SequenceMatcher
-from typing import List
+from typing import List, Optional
 
 from loguru import logger
 
 from src.core.models import MemoryAtom
 from src.storage.sqlite_store import SQLiteGraphStore
+from src.core.ontology import Ontology
 
 
 class ConflictDetector:
@@ -88,10 +89,24 @@ class ConflictDetector:
         ("hot", "cold"),
     ]
 
-    def __init__(self, store: SQLiteGraphStore) -> None:
+    def __init__(
+        self, 
+        store: SQLiteGraphStore,
+        ontology: Optional[Ontology] = None,
+        enable_multihop: bool = True
+    ) -> None:
         self.store = store
+        self.ontology = ontology or Ontology()
+        self.enable_multihop = enable_multihop
         self.conflict_checks = 0
-        logger.info("ConflictDetector initialized (3-stage matching)")
+        
+        # Lazy-load inference engine only if needed
+        self._inference_engine = None
+        
+        logger.info(
+            f"ConflictDetector initialized (3-stage matching, "
+            f"multihop={'enabled' if enable_multihop else 'disabled'})"
+        )
 
     async def find_conflicts(
         self,
@@ -137,6 +152,16 @@ class ConflictDetector:
 
         if not matches:
             logger.debug("No potential conflicts found (Stage 1)")
+            # Still check multi-hop even if no direct matches
+            if self.enable_multihop:
+                multihop_conflicts = await self._check_multihop_conflicts(candidate)
+                if multihop_conflicts:
+                    logger.info(f"Stage 4 (early): Found {len(multihop_conflicts)} multi-hop conflicts")
+                    conflicts = []
+                    for chain in multihop_conflicts:
+                        if chain.atoms and chain.atoms[0] not in conflicts:
+                            conflicts.append(chain.atoms[0])
+                    return conflicts
             return []
 
         logger.debug(f"Stage 1: Found {len(matches)} atoms with same/opposite subject+predicate")
@@ -208,12 +233,35 @@ class ConflictDetector:
                     o2=atom.object[:50],
                 )
 
+        # STAGE 4: Multi-hop reasoning (if enabled)
+        if self.enable_multihop:
+            multihop_conflicts = await self._check_multihop_conflicts(candidate)
+            if multihop_conflicts:
+                logger.info(f"Stage 4: Found {len(multihop_conflicts)} multi-hop conflicts")
+                # Convert ConflictChain objects to MemoryAtom conflicts
+                for chain in multihop_conflicts:
+                    # Add the first atom in the chain as the conflicting atom
+                    if chain.atoms and chain.atoms[0] not in conflicts:
+                        conflicts.append(chain.atoms[0])
+
         logger.info(
             "Conflict detection complete: {count} conflicts found",
             count=len(conflicts),
         )
 
         return conflicts
+    
+    async def _check_multihop_conflicts(self, candidate: MemoryAtom):
+        """Check for multi-hop transitive conflicts"""
+        if self._inference_engine is None:
+            # Lazy-load inference engine
+            from src.reconciliation.inference_engine import InferenceEngine
+            self._inference_engine = InferenceEngine(self.store, self.ontology)
+        
+        return await self._inference_engine.find_transitive_conflicts(
+            candidate,
+            max_hops=3
+        )
 
     def _get_opposite_predicates(self, predicate: str) -> List[str]:
         """Get ALL opposite predicates (there may be multiple)"""

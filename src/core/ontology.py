@@ -4,6 +4,26 @@ from typing import Optional
 from src.core.models import AtomType, MemoryAtom
 
 
+class Ontology:
+    """
+    Ontology wrapper providing access to type-specific rules and validation.
+    """
+    
+    def __init__(self):
+        self.rules = ONTOLOGY_RULES
+    
+    def get_rules(self, atom_type: AtomType) -> dict:
+        """Get rules for a specific atom type"""
+        return self.rules.get(atom_type, {})
+    
+    def is_exclusive_predicate(self, predicate: str) -> bool:
+        """Check if a predicate is exclusive (only one value allowed)"""
+        for atom_type, rules in self.rules.items():
+            if predicate in rules.get("allowed_predicates", []):
+                return rules.get("exclusive", False)
+        return False
+
+
 # Improved ontology with granular types and type-specific rules
 ONTOLOGY_RULES: dict[AtomType, dict] = {
     AtomType.ENTITY: {
