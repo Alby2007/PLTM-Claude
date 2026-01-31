@@ -670,3 +670,8 @@ class SQLiteGraphStore:
         rows = await cursor.fetchall()
         
         return [self._row_to_atom(row) for row in rows]
+    
+    # Alias for MCP server compatibility
+    async def add_atom(self, atom: MemoryAtom) -> None:
+        """Alias for insert_atom (MCP server compatibility)"""
+        await self.insert_atom(atom)

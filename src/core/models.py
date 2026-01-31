@@ -24,6 +24,11 @@ class AtomType(str, Enum):
     PREFERENCE = "preference"    # likes, dislikes, prefers
     BELIEF = "belief"            # thinks, believes, trusts
     SKILL = "skill"              # can_do, proficient_in, learning
+    
+    # Personality and mood tracking (Experiment 8)
+    PERSONALITY_TRAIT = "personality_trait"        # Stable traits (humor, directness)
+    COMMUNICATION_STYLE = "communication_style"    # Style preferences (concise, technical)
+    INTERACTION_PATTERN = "interaction_pattern"    # Behavioral patterns (formal, casual)
 
 
 class GraphType(str, Enum):

@@ -96,6 +96,51 @@ ONTOLOGY_RULES: dict[AtomType, dict] = {
         ],
     },
     
+    AtomType.PERSONALITY_TRAIT: {
+        "allowed_predicates": [
+            "has_trait", "exhibits", "characterized_by",
+            "personality_is", "tends_to_be",
+        ],
+        "description": "Stable personality traits",
+        "decay_rate": 0.02,  # Very stable (personality changes slowly)
+        "exclusive": False,  # Can have multiple traits
+        "examples": [
+            "[User] [has_trait] [humorous]",
+            "[User] [exhibits] [directness]",
+            "[User] [tends_to_be] [analytical]"
+        ],
+    },
+    
+    AtomType.COMMUNICATION_STYLE: {
+        "allowed_predicates": [
+            "prefers_style", "dislikes_style", "responds_well_to",
+            "communication_preference", "style_is",
+        ],
+        "description": "Communication style preferences",
+        "decay_rate": 0.05,  # Somewhat stable
+        "exclusive": False,  # Can have multiple style preferences
+        "examples": [
+            "[User] [prefers_style] [concise responses]",
+            "[User] [responds_well_to] [technical depth]",
+            "[User] [dislikes_style] [verbose explanations]"
+        ],
+    },
+    
+    AtomType.INTERACTION_PATTERN: {
+        "allowed_predicates": [
+            "communication_style_is", "prefers_formality",
+            "communication_includes", "interaction_style",
+        ],
+        "description": "Behavioral interaction patterns",
+        "decay_rate": 0.08,  # Changes slowly
+        "exclusive": False,  # Can have multiple patterns
+        "examples": [
+            "[User] [communication_style_is] [direct and to-the-point]",
+            "[User] [prefers_formality] [casual]",
+            "[User] [communication_includes] [humor]"
+        ],
+    },
+    
     AtomType.BELIEF: {
         "allowed_predicates": [
             "thinks", "believes", "assumes", "expects",

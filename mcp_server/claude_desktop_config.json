@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "pltm-memory": {
+      "command": "python",
+      "args": [
+        "C:/Users/alber/CascadeProjects/LLTM/mcp_server/pltm_server.py"
+      ]
+    }
+  }
+}

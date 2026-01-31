@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Benchmark](https://img.shields.io/badge/accuracy-86%25-brightgreen.svg)](./BENCHMARK_RESULTS.md)
 
-> 86% accuracy on comprehensive conflict resolution (+19pp vs SOTA) • Production infrastructure • 7 novel applications
+> 86% accuracy on comprehensive conflict resolution (+19pp vs SOTA) • Production infrastructure • 8 novel applications
 
 **The first production-ready AI memory system with multi-judge conflict resolution**
 
