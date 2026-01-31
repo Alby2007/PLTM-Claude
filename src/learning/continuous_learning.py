@@ -267,22 +267,19 @@ class ContinuousLearningLoop:
         return await self._run_task(task_name)
     
     def get_schedule_status(self) -> Dict[str, Any]:
-        """Get status of all scheduled tasks"""
-        status = {}
-        for task_name, schedule in self.schedules.items():
-            status[task_name] = {
-                "enabled": schedule.enabled,
-                "interval_hours": schedule.interval_hours,
-                "last_run": schedule.last_run.isoformat() if schedule.last_run else None,
-                "next_run": schedule.next_run.isoformat() if schedule.next_run else None,
-                "run_count": schedule.run_count,
-                "total_items_learned": schedule.total_items_learned
+        """Get status of all scheduled tasks - token efficient"""
+        tasks = {}
+        for name, s in self.schedules.items():
+            tasks[name] = {
+                "on": s.enabled,
+                "h": s.interval_hours,
+                "runs": s.run_count,
+                "learned": s.total_items_learned
             }
         return {
-            "is_running": self.is_running,
-            "schedules": status,
-            "current_session": self.current_session.session_id if self.current_session else None,
-            "total_sessions": len(self.sessions_history)
+            "running": self.is_running,
+            "tasks": tasks,
+            "sessions": len(self.sessions_history)
         }
     
     def update_schedule(

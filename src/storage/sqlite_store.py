@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, List, Dict, Any
 from uuid import UUID
 
 import aiosqlite
@@ -69,6 +69,39 @@ class SQLiteGraphStore:
                 
                 UNIQUE(subject, predicate, object, graph)
             )
+        """)
+
+        # Provenance table - every claim must be traceable
+        await self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS provenance (
+                id TEXT PRIMARY KEY,
+                claim_id TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                source_url TEXT NOT NULL,
+                source_title TEXT,
+                quoted_span TEXT NOT NULL,
+                page_or_section TEXT,
+                accessed_at INTEGER NOT NULL,
+                content_hash TEXT NOT NULL,
+                confidence REAL DEFAULT 0.5,
+                authors TEXT,
+                arxiv_id TEXT,
+                doi TEXT,
+                commit_sha TEXT,
+                file_path TEXT,
+                line_range TEXT,
+                FOREIGN KEY (claim_id) REFERENCES atoms(id)
+            )
+        """)
+        
+        await self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_provenance_claim
+            ON provenance(claim_id)
+        """)
+        
+        await self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_provenance_type
+            ON provenance(source_type)
         """)
 
         # Create indexes for common queries
@@ -166,6 +199,105 @@ class SQLiteGraphStore:
 
         await self._conn.commit()
         logger.debug(f"Inserted atom {atom.id}: [{atom.subject}] [{atom.predicate}] [{atom.object}]")
+
+    async def insert_provenance(
+        self,
+        provenance_id: str,
+        claim_id: str,
+        source_type: str,
+        source_url: str,
+        source_title: str,
+        quoted_span: str,
+        page_or_section: Optional[str],
+        accessed_at: int,
+        content_hash: str,
+        confidence: float,
+        authors: Optional[str] = None,
+        arxiv_id: Optional[str] = None,
+        doi: Optional[str] = None,
+        commit_sha: Optional[str] = None,
+        file_path: Optional[str] = None,
+        line_range: Optional[str] = None
+    ) -> None:
+        """Insert provenance record for a claim"""
+        if not self._conn:
+            raise RuntimeError("Database not connected")
+        
+        await self._conn.execute(
+            """
+            INSERT OR REPLACE INTO provenance
+            (id, claim_id, source_type, source_url, source_title, quoted_span,
+             page_or_section, accessed_at, content_hash, confidence,
+             authors, arxiv_id, doi, commit_sha, file_path, line_range)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (provenance_id, claim_id, source_type, source_url, source_title,
+             quoted_span, page_or_section, accessed_at, content_hash, confidence,
+             authors, arxiv_id, doi, commit_sha, file_path, line_range)
+        )
+        await self._conn.commit()
+        logger.debug(f"Inserted provenance {provenance_id} for claim {claim_id}")
+
+    async def get_provenance_for_claim(self, claim_id: str) -> List[Dict[str, Any]]:
+        """Get all provenance records for a claim"""
+        if not self._conn:
+            raise RuntimeError("Database not connected")
+        
+        cursor = await self._conn.execute(
+            "SELECT * FROM provenance WHERE claim_id = ?",
+            (claim_id,)
+        )
+        rows = await cursor.fetchall()
+        
+        result = []
+        for row in rows:
+            result.append({
+                "id": row[0],
+                "claim_id": row[1],
+                "source_type": row[2],
+                "source_url": row[3],
+                "source_title": row[4],
+                "quoted_span": row[5],
+                "page_or_section": row[6],
+                "accessed_at": row[7],
+                "content_hash": row[8],
+                "confidence": row[9],
+                "arxiv_id": row[11],
+                "doi": row[12],
+                "commit_sha": row[13]
+            })
+        return result
+
+    async def get_unverified_claims(self) -> List[str]:
+        """Get claim IDs that only have internal provenance"""
+        if not self._conn:
+            raise RuntimeError("Database not connected")
+        
+        cursor = await self._conn.execute("""
+            SELECT DISTINCT a.id FROM atoms a
+            LEFT JOIN provenance p ON a.id = p.claim_id
+            WHERE p.id IS NULL OR p.source_type = 'internal'
+        """)
+        rows = await cursor.fetchall()
+        return [row[0] for row in rows]
+
+    async def get_provenance_stats(self) -> Dict[str, Any]:
+        """Get provenance statistics"""
+        if not self._conn:
+            raise RuntimeError("Database not connected")
+        
+        cursor = await self._conn.execute(
+            "SELECT source_type, COUNT(*) FROM provenance GROUP BY source_type"
+        )
+        rows = await cursor.fetchall()
+        by_type = {row[0]: row[1] for row in rows}
+        
+        cursor = await self._conn.execute("SELECT COUNT(*) FROM provenance")
+        total = (await cursor.fetchone())[0]
+        
+        unverified = len(await self.get_unverified_claims())
+        
+        return {"total": total, "by_type": by_type, "unverified": unverified}
 
     async def get_atom(self, atom_id: UUID) -> Optional[MemoryAtom]:
         """Retrieve atom by ID"""
