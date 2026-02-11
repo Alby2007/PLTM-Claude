@@ -45,13 +45,14 @@ conflict_resolver: Optional[EnhancedConflictResolver] = None
 contextual_personality: Optional[ContextualPersonality] = None
 typed_memory_store = None  # TypedMemoryStore - initialized in initialize_pltm
 embedding_store = None  # EmbeddingStore - initialized in initialize_pltm
+typed_memory_pipeline = None  # TypedMemoryPipeline - initialized in initialize_pltm
 
 
 async def initialize_pltm(custom_db_path: str = None):
     """Initialize PLTM system components"""
     global store, pipeline, personality_agent, personality_synth
     global mood_tracker, mood_patterns, conflict_resolver, contextual_personality
-    global typed_memory_store, embedding_store
+    global typed_memory_store, embedding_store, typed_memory_pipeline
     
     # Initialize storage (absolute path so it works regardless of cwd)
     db_path = Path(custom_db_path) if custom_db_path else Path(__file__).parent.parent / "data" / "pltm_mcp.db"
@@ -80,7 +81,11 @@ async def initialize_pltm(custom_db_path: str = None):
     typed_memory_store = TypedMemoryStore(str(db_path), embedding_store=embedding_store, jury=memory_jury)
     await typed_memory_store.connect()
     
-    logger.info("PLTM MCP Server initialized (with embeddings + jury)")
+    # Initialize 3-lane pipeline (Extract → Jury → Reconcile → Store)
+    from src.memory.memory_pipeline import TypedMemoryPipeline
+    typed_memory_pipeline = TypedMemoryPipeline(typed_memory_store, embedding_store, memory_jury)
+    
+    logger.info("PLTM MCP Server initialized (with embeddings + jury + 3-lane pipeline)")
 
 
 # Create MCP server
@@ -1390,6 +1395,45 @@ async def list_tools() -> List[Tool]:
             }
         ),
         
+        Tool(
+            name="process_message",
+            description="Run a message through the full 3-lane typed memory pipeline: (1) Fast Lane extracts typed memories from text, (2) Jury Lane validates each memory (Safety/Quality/Temporal), (3) Write Lane reconciles against existing memories (dedup/supersede/merge). Auto-stores approved memories. Use this to learn from conversation messages.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string", "description": "The message text to extract memories from"},
+                    "user_id": {"type": "string"},
+                    "context": {"type": "string", "description": "Optional conversation context"},
+                    "auto_tag": {"type": "boolean", "description": "Auto-classify memories into taxonomy domains (default true)"},
+                },
+                "required": ["message", "user_id"]
+            }
+        ),
+        
+        Tool(
+            name="process_message_batch",
+            description="Run multiple messages through the 3-lane pipeline. Useful for ingesting conversation history.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "messages": {"type": "array", "items": {"type": "string"}, "description": "List of messages to process"},
+                    "user_id": {"type": "string"},
+                    "context": {"type": "string", "description": "Optional conversation context"},
+                },
+                "required": ["messages", "user_id"]
+            }
+        ),
+        
+        Tool(
+            name="pipeline_stats",
+            description="Get 3-lane pipeline statistics: extraction patterns, jury verdicts, reconciliation actions, messages processed.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        
         # === EXPERIMENT / RESEARCH TOOLS ===
         Tool(
             name="trace_claim_reasoning",
@@ -1939,6 +1983,12 @@ async def _dispatch_tool(name: str, arguments: Dict[str, Any]) -> List[TextConte
         return await handle_belief_auto_check(arguments)
     elif name == "jury_stats":
         return await handle_jury_stats(arguments)
+    elif name == "process_message":
+        return await handle_process_message(arguments)
+    elif name == "process_message_batch":
+        return await handle_process_message_batch(arguments)
+    elif name == "pipeline_stats":
+        return await handle_pipeline_stats(arguments)
     # Experiments
     elif name == "trace_claim_reasoning":
         return await handle_trace_claim_reasoning(arguments)
@@ -4119,6 +4169,62 @@ async def handle_jury_stats(args: Dict[str, Any]) -> List[TextContent]:
         stats["recent_history"] = stats["recent_history"][-limit:]
     
     return [TextContent(type="text", text=compact_json(stats))]
+
+
+async def handle_process_message(args: Dict[str, Any]) -> List[TextContent]:
+    """Process a message through the 3-lane typed memory pipeline."""
+    if not typed_memory_pipeline:
+        return [TextContent(type="text", text=compact_json({"error": "Pipeline not initialized"}))]
+    
+    result = await typed_memory_pipeline.process_message(
+        message=args["message"],
+        user_id=args["user_id"],
+        context=args.get("context", ""),
+        auto_tag=args.get("auto_tag", True),
+    )
+    
+    return [TextContent(type="text", text=compact_json({
+        "extracted": result.memories_extracted,
+        "approved": result.memories_approved,
+        "quarantined": result.memories_quarantined,
+        "rejected": result.memories_rejected,
+        "stored": result.memories_stored,
+        "superseded": result.memories_superseded,
+        "merged": result.memories_merged,
+        "details": result.details,
+    }))]
+
+
+async def handle_process_message_batch(args: Dict[str, Any]) -> List[TextContent]:
+    """Process multiple messages through the 3-lane pipeline."""
+    if not typed_memory_pipeline:
+        return [TextContent(type="text", text=compact_json({"error": "Pipeline not initialized"}))]
+    
+    result = await typed_memory_pipeline.process_batch(
+        messages=args["messages"],
+        user_id=args["user_id"],
+        context=args.get("context", ""),
+    )
+    
+    return [TextContent(type="text", text=compact_json({
+        "messages_processed": len(args["messages"]),
+        "extracted": result.memories_extracted,
+        "approved": result.memories_approved,
+        "quarantined": result.memories_quarantined,
+        "rejected": result.memories_rejected,
+        "stored": result.memories_stored,
+        "superseded": result.memories_superseded,
+        "merged": result.memories_merged,
+        "details": result.details,
+    }))]
+
+
+async def handle_pipeline_stats(args: Dict[str, Any]) -> List[TextContent]:
+    """Get 3-lane pipeline statistics."""
+    if not typed_memory_pipeline:
+        return [TextContent(type="text", text=compact_json({"error": "Pipeline not initialized"}))]
+    
+    return [TextContent(type="text", text=compact_json(typed_memory_pipeline.get_stats()))]
 
 
 # === EXPERIMENT / RESEARCH HANDLERS ===
