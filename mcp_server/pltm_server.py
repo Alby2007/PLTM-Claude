@@ -46,6 +46,16 @@ contextual_personality: Optional[ContextualPersonality] = None
 typed_memory_store = None  # TypedMemoryStore - initialized in initialize_pltm
 embedding_store = None  # EmbeddingStore - initialized in initialize_pltm
 typed_memory_pipeline = None  # TypedMemoryPipeline - initialized in initialize_pltm
+decay_engine = None
+consolidation_engine = None
+contextual_retriever = None
+conflict_surfacer = None
+memory_clusterer = None
+shared_memory_mgr = None
+memory_portability = None
+provenance_tracker = None
+confidence_decay_engine = None
+memory_auditor = None
 
 
 async def initialize_pltm(custom_db_path: str = None):
@@ -85,7 +95,28 @@ async def initialize_pltm(custom_db_path: str = None):
     from src.memory.memory_pipeline import TypedMemoryPipeline
     typed_memory_pipeline = TypedMemoryPipeline(typed_memory_store, embedding_store, memory_jury)
     
-    logger.info("PLTM MCP Server initialized (with embeddings + jury + 3-lane pipeline)")
+    # Initialize Memory Intelligence components
+    from src.memory.memory_intelligence import (
+        DecayEngine, ConsolidationEngine, ContextualRetriever,
+        ImportanceScorer, ConflictSurfacer, MemoryClusterer,
+        SharedMemoryManager, MemoryPortability, ProvenanceTracker,
+        ConfidenceDecayEngine, MemoryAuditor,
+    )
+    global decay_engine, consolidation_engine, contextual_retriever
+    global conflict_surfacer, memory_clusterer, shared_memory_mgr
+    global memory_portability, provenance_tracker, confidence_decay_engine, memory_auditor
+    decay_engine = DecayEngine(typed_memory_store)
+    consolidation_engine = ConsolidationEngine(typed_memory_store, embedding_store)
+    contextual_retriever = ContextualRetriever(typed_memory_store, embedding_store)
+    conflict_surfacer = ConflictSurfacer(typed_memory_store, embedding_store)
+    memory_clusterer = MemoryClusterer(typed_memory_store, embedding_store)
+    shared_memory_mgr = SharedMemoryManager(typed_memory_store)
+    memory_portability = MemoryPortability(typed_memory_store)
+    provenance_tracker = ProvenanceTracker(typed_memory_store)
+    confidence_decay_engine = ConfidenceDecayEngine(typed_memory_store, embedding_store)
+    memory_auditor = MemoryAuditor(typed_memory_store, embedding_store, memory_jury)
+    
+    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence)")
 
 
 # Create MCP server
@@ -1448,6 +1479,83 @@ async def list_tools() -> List[Tool]:
             }
         ),
         
+        # === MEMORY INTELLIGENCE TOOLS ===
+        Tool(
+            name="apply_memory_decay",
+            description="Apply Ebbinghaus forgetting curve to all memories. Recalculates strength based on time since last access and type-specific half-lives. Run periodically to keep memory strengths realistic.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="decay_forecast",
+            description="Forecast which memories will decay below threshold in the next N hours. Helps identify memories that need rehearsal.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "hours_ahead": {"type": "integer", "description": "Hours to forecast (default 168 = 1 week)"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="consolidate_memories",
+            description="Promote repeated episodic patterns into semantic memories using embedding-based clustering. Finds clusters of similar episodes and creates consolidated semantic facts.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "min_cluster_size": {"type": "integer", "description": "Min episodes to form cluster (default 3)"}, "similarity_threshold": {"type": "number", "description": "Embedding similarity threshold (default 0.55)"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="contextual_retrieve",
+            description="RAG-style retrieval: given recent conversation messages, retrieve the most relevant memories and build a structured prompt block for system prompt injection.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "messages": {"type": "array", "items": {"type": "string"}, "description": "Recent conversation messages"}, "max_memories": {"type": "integer", "description": "Max memories to inject (default 12)"}}, "required": ["user_id", "messages"]}
+        ),
+        Tool(
+            name="rank_by_importance",
+            description="Rank all memories by importance score. Factors: type weight, access frequency, recency, strength, confidence, consolidation count.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "limit": {"type": "integer", "description": "Max results (default 50)"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="surface_conflicts",
+            description="Detect memory contradictions and surface them as actionable items for user resolution. Returns conflict pairs with resolution options (keep_a, keep_b, keep_both, delete_both).",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="resolve_conflict",
+            description="Resolve a surfaced memory conflict. Actions: keep_a, keep_b, keep_both, delete_both.",
+            inputSchema={"type": "object", "properties": {"conflict_id": {"type": "string"}, "action": {"type": "string", "enum": ["keep_a", "keep_b", "keep_both", "delete_both"]}, "user_id": {"type": "string"}}, "required": ["conflict_id", "action", "user_id"]}
+        ),
+        Tool(
+            name="memory_clusters",
+            description="Build topic clusters from all memories using embedding similarity. Groups related memories for 'tell me everything about X' queries.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "similarity_threshold": {"type": "number", "description": "Clustering threshold (default 0.5)"}, "min_cluster_size": {"type": "integer", "description": "Min cluster size (default 2)"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="share_memory",
+            description="Share a memory with another user. Supports read/write permissions.",
+            inputSchema={"type": "object", "properties": {"memory_id": {"type": "string"}, "owner_id": {"type": "string"}, "target_user_id": {"type": "string"}, "permission": {"type": "string", "enum": ["read", "write"]}}, "required": ["memory_id", "owner_id", "target_user_id"]}
+        ),
+        Tool(
+            name="shared_with_me",
+            description="Get all memories shared with a user by other users.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="export_memory_profile",
+            description="Export all memories for a user as a portable JSON structure. Can be imported into another instance.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="import_memory_profile",
+            description="Import a memory profile from JSON. Supports merge (keep existing) or replace modes.",
+            inputSchema={"type": "object", "properties": {"profile_json": {"type": "string", "description": "JSON string of exported profile"}, "target_user_id": {"type": "string"}, "merge": {"type": "boolean", "description": "Merge with existing (default true)"}}, "required": ["profile_json"]}
+        ),
+        Tool(
+            name="memory_provenance",
+            description="Get the provenance chain for a memory: which conversation, message, extraction pattern, and jury verdict created it.",
+            inputSchema={"type": "object", "properties": {"memory_id": {"type": "string"}}, "required": ["memory_id"]}
+        ),
+        Tool(
+            name="apply_confidence_decay",
+            description="Apply gradual confidence reduction to beliefs with contradicting evidence. More nuanced than binary supersede/keep.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="memory_audit",
+            description="Run a full memory health audit: decay, consolidation, belief check, contradiction detection, clustering, pruning, jury health. Returns health score 0-100.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
+        ),
+
         # === EXPERIMENT / RESEARCH TOOLS ===
         Tool(
             name="trace_claim_reasoning",
@@ -2005,6 +2113,37 @@ async def _dispatch_tool(name: str, arguments: Dict[str, Any]) -> List[TextConte
         return await handle_process_message_batch(arguments)
     elif name == "pipeline_stats":
         return await handle_pipeline_stats(arguments)
+    # Memory Intelligence
+    elif name == "apply_memory_decay":
+        return await handle_apply_memory_decay(arguments)
+    elif name == "decay_forecast":
+        return await handle_decay_forecast(arguments)
+    elif name == "consolidate_memories":
+        return await handle_consolidate_memories(arguments)
+    elif name == "contextual_retrieve":
+        return await handle_contextual_retrieve(arguments)
+    elif name == "rank_by_importance":
+        return await handle_rank_by_importance(arguments)
+    elif name == "surface_conflicts":
+        return await handle_surface_conflicts(arguments)
+    elif name == "resolve_conflict":
+        return await handle_resolve_conflict(arguments)
+    elif name == "memory_clusters":
+        return await handle_memory_clusters(arguments)
+    elif name == "share_memory":
+        return await handle_share_memory(arguments)
+    elif name == "shared_with_me":
+        return await handle_shared_with_me(arguments)
+    elif name == "export_memory_profile":
+        return await handle_export_memory_profile(arguments)
+    elif name == "import_memory_profile":
+        return await handle_import_memory_profile(arguments)
+    elif name == "memory_provenance":
+        return await handle_memory_provenance(arguments)
+    elif name == "apply_confidence_decay":
+        return await handle_apply_confidence_decay(arguments)
+    elif name == "memory_audit":
+        return await handle_memory_audit(arguments)
     # Experiments
     elif name == "trace_claim_reasoning":
         return await handle_trace_claim_reasoning(arguments)
@@ -4260,6 +4399,136 @@ async def handle_pipeline_stats(args: Dict[str, Any]) -> List[TextContent]:
         return [TextContent(type="text", text=compact_json({"error": "Pipeline not initialized"}))]
     
     return [TextContent(type="text", text=compact_json(typed_memory_pipeline.get_stats()))]
+
+
+# === MEMORY INTELLIGENCE HANDLERS ===
+
+async def handle_apply_memory_decay(args: Dict[str, Any]) -> List[TextContent]:
+    if not decay_engine:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await decay_engine.apply_decay(args["user_id"])
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_decay_forecast(args: Dict[str, Any]) -> List[TextContent]:
+    if not decay_engine:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await decay_engine.get_decay_forecast(
+        args["user_id"], hours_ahead=args.get("hours_ahead", 168))
+    return [TextContent(type="text", text=compact_json({"forecasts": result, "count": len(result)}))]
+
+
+async def handle_consolidate_memories(args: Dict[str, Any]) -> List[TextContent]:
+    if not consolidation_engine:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await consolidation_engine.consolidate(
+        args["user_id"],
+        min_cluster_size=args.get("min_cluster_size", 3),
+        similarity_threshold=args.get("similarity_threshold", 0.55))
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_contextual_retrieve(args: Dict[str, Any]) -> List[TextContent]:
+    if not contextual_retriever:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await contextual_retriever.retrieve_for_conversation(
+        args["user_id"], args["messages"],
+        max_memories=args.get("max_memories", 12))
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_rank_by_importance(args: Dict[str, Any]) -> List[TextContent]:
+    from src.memory.memory_intelligence import ImportanceScorer
+    if not typed_memory_store:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await ImportanceScorer.rank_memories(
+        typed_memory_store, args["user_id"], limit=args.get("limit", 50))
+    return [TextContent(type="text", text=compact_json({"ranked": result, "count": len(result)}))]
+
+
+async def handle_surface_conflicts(args: Dict[str, Any]) -> List[TextContent]:
+    if not conflict_surfacer:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await conflict_surfacer.detect_and_surface(args["user_id"])
+    return [TextContent(type="text", text=compact_json({"conflicts": result, "count": len(result)}))]
+
+
+async def handle_resolve_conflict(args: Dict[str, Any]) -> List[TextContent]:
+    if not conflict_surfacer:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await conflict_surfacer.resolve_conflict(
+        args["conflict_id"], args["action"], args["user_id"])
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_memory_clusters(args: Dict[str, Any]) -> List[TextContent]:
+    if not memory_clusterer:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await memory_clusterer.build_clusters(
+        args["user_id"],
+        similarity_threshold=args.get("similarity_threshold", 0.5),
+        min_cluster_size=args.get("min_cluster_size", 2))
+    return [TextContent(type="text", text=compact_json({"clusters": result, "count": len(result)}))]
+
+
+async def handle_share_memory(args: Dict[str, Any]) -> List[TextContent]:
+    if not shared_memory_mgr:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await shared_memory_mgr.share_memory(
+        args["memory_id"], args["owner_id"], args["target_user_id"],
+        permission=args.get("permission", "read"))
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_shared_with_me(args: Dict[str, Any]) -> List[TextContent]:
+    if not shared_memory_mgr:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await shared_memory_mgr.get_shared_with_me(args["user_id"])
+    return [TextContent(type="text", text=compact_json({"shared_memories": result, "count": len(result)}))]
+
+
+async def handle_export_memory_profile(args: Dict[str, Any]) -> List[TextContent]:
+    if not memory_portability:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await memory_portability.export_profile(args["user_id"])
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_import_memory_profile(args: Dict[str, Any]) -> List[TextContent]:
+    if not memory_portability:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    import json as _json
+    try:
+        profile = _json.loads(args["profile_json"])
+    except Exception as e:
+        return [TextContent(type="text", text=compact_json({"error": f"Invalid JSON: {e}"}))]
+    result = await memory_portability.import_profile(
+        profile, target_user_id=args.get("target_user_id"),
+        merge=args.get("merge", True))
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_memory_provenance(args: Dict[str, Any]) -> List[TextContent]:
+    if not provenance_tracker:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await provenance_tracker.get_provenance(args["memory_id"])
+    if not result:
+        return [TextContent(type="text", text=compact_json({"error": "No provenance found", "memory_id": args["memory_id"]}))]
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_apply_confidence_decay(args: Dict[str, Any]) -> List[TextContent]:
+    if not confidence_decay_engine:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await confidence_decay_engine.apply_evidence_decay(args["user_id"])
+    return [TextContent(type="text", text=compact_json({"adjustments": result, "count": len(result)}))]
+
+
+async def handle_memory_audit(args: Dict[str, Any]) -> List[TextContent]:
+    if not memory_auditor:
+        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
+    result = await memory_auditor.full_audit(args["user_id"])
+    return [TextContent(type="text", text=compact_json(result))]
 
 
 # === EXPERIMENT / RESEARCH HANDLERS ===
