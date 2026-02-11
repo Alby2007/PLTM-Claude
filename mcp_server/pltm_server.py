@@ -77,7 +77,7 @@ async def initialize_pltm(custom_db_path: str = None):
     from src.memory.memory_jury import MemoryJury
     embedding_store = EmbeddingStore(str(db_path))
     await embedding_store.connect()
-    memory_jury = MemoryJury(enable_meta_judge=True)
+    memory_jury = MemoryJury(enable_meta_judge=True, db_path=str(db_path))
     typed_memory_store = TypedMemoryStore(str(db_path), embedding_store=embedding_store, jury=memory_jury)
     await typed_memory_store.connect()
     
@@ -1396,6 +1396,20 @@ async def list_tools() -> List[Tool]:
         ),
         
         Tool(
+            name="jury_feedback",
+            description="Record ground truth feedback for the Judge/Jury MetaJudge. Call when a user corrects/deletes a memory (false_positive), re-submits a rejected memory (false_negative), or confirms a memory is correct (confirmed). This trains the MetaJudge to adaptively weight judges.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "memory_id": {"type": "string", "description": "ID of the memory"},
+                    "feedback_type": {"type": "string", "enum": ["false_positive", "false_negative", "confirmed"], "description": "Type of feedback"},
+                    "details": {"type": "string", "description": "Optional details about the feedback"},
+                },
+                "required": ["memory_id", "feedback_type"]
+            }
+        ),
+        
+        Tool(
             name="process_message",
             description="Run a message through the full 3-lane typed memory pipeline: (1) Fast Lane extracts typed memories from text, (2) Jury Lane validates each memory (Safety/Quality/Temporal), (3) Write Lane reconciles against existing memories (dedup/supersede/merge). Auto-stores approved memories. Use this to learn from conversation messages.",
             inputSchema={
@@ -1983,6 +1997,8 @@ async def _dispatch_tool(name: str, arguments: Dict[str, Any]) -> List[TextConte
         return await handle_belief_auto_check(arguments)
     elif name == "jury_stats":
         return await handle_jury_stats(arguments)
+    elif name == "jury_feedback":
+        return await handle_jury_feedback(arguments)
     elif name == "process_message":
         return await handle_process_message(arguments)
     elif name == "process_message_batch":
@@ -4169,6 +4185,25 @@ async def handle_jury_stats(args: Dict[str, Any]) -> List[TextContent]:
         stats["recent_history"] = stats["recent_history"][-limit:]
     
     return [TextContent(type="text", text=compact_json(stats))]
+
+
+async def handle_jury_feedback(args: Dict[str, Any]) -> List[TextContent]:
+    """Record ground truth feedback for MetaJudge learning."""
+    if not typed_memory_store or not typed_memory_store.jury:
+        return [TextContent(type="text", text=compact_json({"error": "Jury not initialized"}))]
+    
+    typed_memory_store.jury.record_feedback(
+        memory_id=args["memory_id"],
+        feedback_type=args["feedback_type"],
+        details=args.get("details", ""),
+    )
+    
+    return [TextContent(type="text", text=compact_json({
+        "status": "recorded",
+        "memory_id": args["memory_id"],
+        "feedback_type": args["feedback_type"],
+        "adaptive_weights": typed_memory_store.jury.meta.get_adaptive_weights() if typed_memory_store.jury.meta else {},
+    }))]
 
 
 async def handle_process_message(args: Dict[str, Any]) -> List[TextContent]:
