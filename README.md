@@ -5,7 +5,7 @@
 [![MCP Tools](https://img.shields.io/badge/MCP_tools-136-brightgreen.svg)](#tool-categories)
 [![Tests](https://img.shields.io/badge/tests-11%20passing-brightgreen.svg)](#testing)
 
-> 136 MCP tools · 1,600+ atoms + 1,650+ typed memories · Semantic embeddings · Memory jury · Epistemic self-monitoring · React dashboard
+> 136 MCP tools · 4 memory types · Semantic embeddings · Memory jury + meta-judge · Epistemic self-monitoring · React dashboard
 
 An MCP server that gives Claude Desktop persistent memory, self-awareness, epistemic hygiene, and genuine agency across conversations — with a typed memory system, embedding-based semantic search, a 3-judge memory jury + meta-judge observability layer, and a real-time dashboard.
 
@@ -97,11 +97,11 @@ Restart Claude Desktop.
 
 PLTM turns Claude from a stateless chatbot into a **persistent entity** with:
 
-- **Typed Memory** — 1,650+ memories across 4 types (episodic, semantic, belief, procedural) with strength decay, confidence tracking, and automatic consolidation
+- **Typed Memory** — 4 memory types (episodic, semantic, belief, procedural) with strength decay, confidence tracking, and automatic consolidation
 - **Semantic Search** — Embedding-based similarity search using `all-MiniLM-L6-v2` (384-dim vectors), plus full-text search via SQLite FTS5
 - **Memory Jury** — 3-judge validation gate (Relevance, Novelty, Accuracy) that filters, quarantines, or rejects incoming memories before storage
 - **Memory Intelligence** — Decay engine, consolidation, clustering, conflict detection, importance ranking, contextual retrieval, and provenance tracking
-- **Knowledge Graph** — 1,600+ semantic atoms stored as subject-predicate-object triples with attention-weighted retrieval
+- **Knowledge Graph** — Semantic atoms stored as subject-predicate-object triples with attention-weighted retrieval
 - **Identity** — Communication style, curiosity patterns, value boundaries, and reasoning habits tracked across sessions
 - **Epistemic Hygiene** — Confidence calibration, claim logging, confabulation detection, and verification suggestions
 - **Goals** — Persistent goals that survive across conversations with progress tracking
@@ -296,7 +296,7 @@ System context, LLM routing, encryption, task scheduling, state persistence, str
 │                                                         │
 │  ┌─────────────────────────────────────────────────────┐ │
 │  │           SQLiteGraphStore (Knowledge Graph)        │ │
-│  │  1,615 atoms · subject-predicate-object triples     │ │
+│  │  atoms · subject-predicate-object triples            │ │
 │  └─────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -389,16 +389,14 @@ PLTM/
 
 ## Database
 
-The knowledge base (`data/pltm_mcp.db`) is included in the repo. It contains:
+The database (`data/pltm_mcp.db`) is created automatically on first run. It starts empty and grows as Claude learns:
 
-- **1,615 semantic atoms** across multiple domains (subject-predicate-object triples)
-- **1,651 typed memories** — episodic, semantic, belief, and procedural with embeddings
-- **40 tables** including typed_memories, memory_embeddings, personality snapshots, prediction book, calibration cache, confabulation log, session history, goals, provenance, meta-judge events, and more
+- **40 tables** — typed_memories, memory_embeddings, personality snapshots, prediction book, calibration cache, confabulation log, session history, goals, provenance, meta-judge events, and more
 - **Full-text search** via FTS5 on both atoms and typed memories
 - **WAL mode** enabled on all connections to prevent "database is locked" errors
-- **Personality data** — communication style, curiosity patterns, value boundaries, reasoning events
+- **Portable** — copy the DB to another machine and Claude picks up the same identity
 
-The DB is portable — clone the repo on another machine and Claude picks up the same identity.
+The more you use it, the richer Claude's memory becomes. In the dev instance, the DB has grown to 1,600+ atoms and 1,650+ typed memories.
 
 ---
 
