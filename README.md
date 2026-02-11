@@ -7,7 +7,7 @@
 
 > 136 MCP tools · 1,600+ atoms + 1,650+ typed memories · Semantic embeddings · Memory jury · Epistemic self-monitoring · React dashboard
 
-An MCP server that gives Claude Desktop persistent memory, self-awareness, epistemic hygiene, and genuine agency across conversations — with a typed memory system, embedding-based semantic search, a 3-judge memory jury, and a real-time dashboard.
+An MCP server that gives Claude Desktop persistent memory, self-awareness, epistemic hygiene, and genuine agency across conversations — with a typed memory system, embedding-based semantic search, a 3-judge memory jury + meta-judge observability layer, and a real-time dashboard.
 
 ---
 
@@ -310,7 +310,7 @@ System context, LLM routing, encryption, task scheduling, state persistence, str
 | **Belief** | Opinions with evidence tracking | Evidence-based | "AI will surpass humans at coding by 2030" (confidence: 0.6) |
 | **Procedural** | Trigger → action patterns | Success-weighted | "When user says 'deploy' → run the CI pipeline" |
 
-### Memory Jury
+### Memory Jury + Meta-Judge
 
 Every incoming memory passes through a 3-judge panel before storage:
 
@@ -318,7 +318,19 @@ Every incoming memory passes through a 3-judge panel before storage:
 2. **Novelty Judge** — Do we already know this?
 3. **Accuracy Judge** — Is this factually plausible?
 
-Verdict: **ACCEPT** (store normally), **QUARANTINE** (store with reduced strength), or **REJECT** (discard).
+**Consensus Judge** aggregates verdicts via weighted voting: **APPROVE** (store normally), **QUARANTINE** (store with reduced strength), or **REJECT** (discard). Safety REJECT is an instant veto.
+
+#### Meta-Judge (observability layer)
+
+The **MetaJudge** sits above the jury and tracks judge performance over time:
+
+1. **Persistent stats** — judge accuracy, verdict counts, and confidence stored in SQLite (survives restarts)
+2. **Ground truth feedback** — learn from user corrections (false positives / false negatives)
+3. **Adaptive judge weighting** — feeds accuracy back into ConsensusJudge weights automatically
+4. **Per-type breakdown** — tracks judge performance per memory type (episodic, semantic, belief, procedural)
+5. **Calibration curves** — measures whether judge confidence scores match actual accuracy
+6. **Drift detection** — alerts when a judge's verdict distribution shifts beyond threshold
+7. **Full dashboard** — exposes stats, calibration, drift alerts, and feedback history via MCP tools
 
 ---
 
