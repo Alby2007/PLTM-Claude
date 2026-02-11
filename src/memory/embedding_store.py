@@ -60,6 +60,20 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b))
 
 
+async def embed_text_async(text: str) -> np.ndarray:
+    """Non-blocking version of embed_text — runs model in thread pool."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, embed_text, text)
+
+
+async def embed_batch_async(texts: list) -> np.ndarray:
+    """Non-blocking version of embed_batch — runs model in thread pool."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, embed_batch, texts)
+
+
 class EmbeddingStore:
     """
     Manages embeddings for typed memories in SQLite.
@@ -119,8 +133,8 @@ class EmbeddingStore:
         if row and row[0] == content_hash:
             return False  # Already indexed, content unchanged
         
-        # Generate embedding
-        vec = embed_text(content)
+        # Generate embedding (non-blocking — runs in thread pool)
+        vec = await embed_text_async(content)
         blob = _vec_to_bytes(vec)
         
         await self._conn.execute(
@@ -157,7 +171,7 @@ class EmbeddingStore:
         
         # Batch embed
         texts = [content for _, content, _ in to_index]
-        vecs = embed_batch(texts)
+        vecs = await embed_batch_async(texts)
         
         for i, (mem_id, content, content_hash) in enumerate(to_index):
             blob = _vec_to_bytes(vecs[i])
@@ -190,7 +204,7 @@ class EmbeddingStore:
         Returns: [{"memory_id": str, "similarity": float}, ...]
         sorted by similarity descending.
         """
-        query_vec = embed_text(query)
+        query_vec = await embed_text_async(query)
         
         # Load all embeddings (brute force — fine for <100K)
         if memory_ids:

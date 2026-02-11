@@ -151,7 +151,7 @@ class ConsolidationEngine:
         clusters = []
         used = set()
 
-        if self.embeddings:
+        if self.embeddings and len(episodes) <= 50:
             # Embedding-based clustering
             for ep in episodes:
                 if ep.id in used:
@@ -545,8 +545,8 @@ class MemoryClusterer:
         Build topic clusters from all memories using greedy clustering.
         """
         all_mems = await self.store.query(user_id, min_strength=0.05, limit=500)
-        if not all_mems or not self.embeddings:
-            # Fallback: tag-based clustering
+        if not all_mems or not self.embeddings or len(all_mems) > 50:
+            # Fallback: tag-based clustering (fast, no embeddings)
             return self._tag_based_clusters(all_mems)
 
         clusters = []
@@ -988,55 +988,52 @@ class MemoryAuditor:
 
     async def full_audit(self, user_id: str) -> Dict[str, Any]:
         """
-        Run all health checks and return comprehensive report.
+        Lightweight health audit — fast DB queries only, no embedding ops.
         """
         t0 = time.time()
         report: Dict[str, Any] = {"user_id": user_id, "timestamp": t0}
 
-        # 1. Memory stats
+        # 1. Memory stats (fast SQL)
         report["stats"] = await self.store.get_stats(user_id)
 
-        # 2. Decay status
-        report["decay"] = await self.decay_engine.apply_decay(user_id)
-
-        # 3. Decay forecast
+        # 2. Decay forecast (pure math, no embeddings)
         report["decay_forecast"] = await self.decay_engine.get_decay_forecast(user_id)
 
-        # 4. Consolidation opportunities
-        report["consolidation"] = await self.consolidation.consolidate(user_id)
-
-        # 5. Belief auto-check
-        report["belief_check"] = await self.store.belief_auto_check(user_id)
-
-        # 6. Confidence decay
-        report["confidence_adjustments"] = await self.confidence_decay.apply_evidence_decay(user_id)
-
-        # 7. Contradiction detection
-        report["contradictions"] = await self.store.detect_contradictions(user_id)
-
-        # 8. Cluster analysis
-        report["clusters"] = await self.clusterer.build_clusters(user_id)
-
-        # 9. Auto-prune
-        report["pruned"] = await self.store.auto_prune(user_id)
-
-        # 10. Jury health (if available)
+        # 3. Jury health (in-memory, instant)
         if self.jury:
-            jury_stats = self.jury.get_stats()
-            report["jury_health"] = {
-                "deliberations": jury_stats.get("deliberations", 0),
-                "drift_alerts": jury_stats.get("drift_alerts", []),
-                "tuning_recommendations": jury_stats.get("tuning_recommendations", []),
-            }
+            try:
+                jury_stats = self.jury.get_stats()
+                report["jury_health"] = {
+                    "deliberations": jury_stats.get("deliberations", 0),
+                    "drift_alerts": jury_stats.get("drift_alerts", []),
+                }
+            except Exception:
+                report["jury_health"] = {"deliberations": 0}
 
-        # 11. Importance ranking (top 10)
-        report["top_memories"] = await ImportanceScorer.rank_memories(
-            self.store, user_id, limit=10)
+        # 4. Quick strength/confidence summary from DB
+        try:
+            conn = self.store._conn
+            low_str = await conn.execute_fetchall(
+                "SELECT COUNT(*) FROM typed_memories WHERE user_id = ? AND strength < 0.2",
+                (user_id,))
+            low_conf = await conn.execute_fetchall(
+                "SELECT COUNT(*) FROM typed_memories WHERE user_id = ? AND confidence < 0.3",
+                (user_id,))
+            stale = await conn.execute_fetchall(
+                "SELECT COUNT(*) FROM typed_memories WHERE user_id = ? AND last_accessed < ?",
+                (user_id, time.time() - 604800))
+            report["low_strength_count"] = low_str[0][0] if low_str else 0
+            report["low_confidence_count"] = low_conf[0][0] if low_conf else 0
+            report["stale_count"] = stale[0][0] if stale else 0
+        except Exception:
+            report["low_strength_count"] = 0
+            report["low_confidence_count"] = 0
+            report["stale_count"] = 0
 
         elapsed = time.time() - t0
         report["audit_duration_ms"] = round(elapsed * 1000, 1)
 
-        # Health score
+        # Health score from stats
         total = report["stats"].get("total", 0)
         if total > 0:
             avg_strength = sum(
@@ -1044,16 +1041,17 @@ class MemoryAuditor:
                 if isinstance(v, dict) and "avg_strength" in v
             ) / max(1, sum(1 for v in report["stats"].values()
                            if isinstance(v, dict) and "avg_strength" in v))
-            contradictions = len(report.get("contradictions", []))
-            pruned = report.get("pruned", {}).get("total_pruned", 0)
+            penalty = 0
+            if report["low_strength_count"] > total * 0.3:
+                penalty += 15
+            if report["low_confidence_count"] > total * 0.2:
+                penalty += 10
+            if report["stale_count"] > total * 0.5:
+                penalty += 15
 
-            health = max(0, min(100, int(
-                100 * avg_strength
-                - contradictions * 5
-                - pruned * 2
-            )))
+            health = max(0, min(100, int(100 * avg_strength - penalty)))
         else:
-            health = 100
+            health = 0
 
         report["health_score"] = health
         report["health_label"] = (

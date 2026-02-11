@@ -16,6 +16,7 @@ Each type has its own:
   - Conflict resolution behavior
 """
 
+import asyncio
 import json
 import math
 import time
@@ -296,17 +297,19 @@ class TypedMemoryStore:
         ))
         await self._conn.commit()
         
-        # Auto-index embedding if store available
+        # Auto-index embedding if store available (fire-and-forget to avoid timeout)
         if self.embeddings:
-            try:
-                text = mem.content
-                if mem.trigger:
-                    text += f" | trigger: {mem.trigger}"
-                if mem.action:
-                    text += f" | action: {mem.action}"
-                await self.embeddings.index_memory(mem.id, text)
-            except Exception as e:
-                logger.warning(f"Embedding index failed for {mem.id}: {e}")
+            async def _index_bg(mid, text):
+                try:
+                    await self.embeddings.index_memory(mid, text)
+                except Exception as e:
+                    logger.warning(f"Embedding index failed for {mid}: {e}")
+            text = mem.content
+            if mem.trigger:
+                text += f" | trigger: {mem.trigger}"
+            if mem.action:
+                text += f" | action: {mem.action}"
+            asyncio.create_task(_index_bg(mem.id, text))
         
         return mem.id
     
