@@ -11,53 +11,60 @@ An MCP server that gives Claude Desktop persistent memory, self-awareness, epist
 
 ---
 
-## Quick Start — 3 Commands
+## Install — One Command
 
+**macOS / Linux:**
 ```bash
-git clone https://github.com/Alby2007/PLTM.git && cd PLTM
-python setup_pltm.py          # Creates venv, installs deps, inits DB, downloads model
-python configure_claude.py    # Auto-configures Claude Desktop (detects OS + paths)
+curl -fsSL https://raw.githubusercontent.com/Alby2007/PLTM-Claude/main/install.sh | bash
 ```
 
-Then **restart Claude Desktop** — 136 tools will be available.
-
-> **Optional:** Add your free [Groq API key](https://console.groq.com) to `.env` for LLM-powered tools (ingestion, fact-checking, bootstrapping). Core memory tools work without it.
-
-**Verify it works** — ask Claude:
-```
-Use auto_init_session to check system state
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Alby2007/PLTM-Claude/main/install.ps1 | iex
 ```
 
-**Run health check** (diagnose issues):
-```bash
-python health_check.py
-```
+**Then restart Claude Desktop** — 136 tools ready.
+
+That's it. The installer clones the repo, creates a venv, installs deps, downloads the embedding model, initializes the database, and auto-configures Claude Desktop. No manual JSON editing.
+
+> **Optional:** Add a free [Groq API key](https://console.groq.com) to `~/PLTM/.env` for LLM-powered tools (ingestion, fact-checking). Core memory tools work without it.
+
+**Verify** — ask Claude: `Use auto_init_session to check system state`
+
+**Diagnose issues:** `python ~/PLTM/health_check.py`
 
 <details>
-<summary><strong>Manual setup (alternative)</strong></summary>
-
-### 1. Clone & install
+<summary><strong>Alternative: manual clone + setup</strong></summary>
 
 ```bash
-git clone https://github.com/Alby2007/PLTM.git
-cd PLTM
+git clone https://github.com/Alby2007/PLTM-Claude.git && cd PLTM-Claude
+python setup_pltm.py
+```
+
+The setup script handles everything: venv, deps, .env, DB, model, and Claude Desktop config.
+
+Flags:
+- `--skip-claude` — skip Claude Desktop auto-config
+- `--skip-model` — skip embedding model download (faster)
+- `--reset` — delete venv + DB and start fresh
+- `--uninstall` — remove PLTM from Claude Desktop config
+
+</details>
+
+<details>
+<summary><strong>Fully manual setup</strong></summary>
+
+```bash
+git clone https://github.com/Alby2007/PLTM-Claude.git
+cd PLTM-Claude
 python3.11 -m venv .venv
 source .venv/bin/activate        # macOS/Linux
 # .venv\Scripts\activate         # Windows
-pip install --upgrade pip
 pip install -r requirements-lite.txt
+cp .env.example .env             # edit to add GROQ_API_KEY
 ```
 
-### 2. Set API keys
-
-```bash
-cp .env.example .env
-# Edit .env — set GROQ_API_KEY (free at console.groq.com)
-```
-
-### 3. Configure Claude Desktop
-
-Edit your config file:
+Then edit your Claude Desktop config:
 
 | OS | Path |
 |----|------|
@@ -69,10 +76,10 @@ Edit your config file:
 {
   "mcpServers": {
     "pltm": {
-      "command": "/path/to/PLTM/.venv/bin/python3.11",
+      "command": "/path/to/PLTM-Claude/.venv/bin/python3",
       "args": ["-m", "mcp_server.pltm_server"],
       "env": {
-        "PYTHONPATH": "/path/to/PLTM",
+        "PYTHONPATH": "/path/to/PLTM-Claude",
         "GROQ_API_KEY": "your-groq-key"
       }
     }
@@ -80,7 +87,7 @@ Edit your config file:
 }
 ```
 
-### 4. Restart Claude Desktop
+Restart Claude Desktop.
 
 </details>
 
