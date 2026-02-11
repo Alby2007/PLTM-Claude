@@ -154,13 +154,13 @@ async def list_tools() -> List[Tool]:
     return [
         Tool(
             name="store_memory_atom",
-            description="Store a memory atom in PLTM graph. Use this to remember facts, traits, or observations about the user.",
+            description="Store a knowledge atom (subject-predicate-object triple).",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     },
                     "atom_type": {
                         "type": "string",
@@ -181,7 +181,6 @@ async def list_tools() -> List[Tool]:
                     },
                     "confidence": {
                         "type": "number",
-                        "description": "Confidence score (0.0-1.0)",
                         "minimum": 0.0,
                         "maximum": 1.0
                     },
@@ -197,13 +196,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="query_personality",
-            description="Get synthesized personality profile for a user. Returns traits, communication style, and preferences.",
+            description="Get synthesized personality profile.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     },
                     "context": {
                         "type": "string",
@@ -216,17 +215,17 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="detect_mood",
-            description="Detect mood from user message. Returns detected mood and confidence.",
+            description="Detect mood from message text.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     },
                     "message": {
                         "type": "string",
-                        "description": "User's message to analyze"
+                        
                     }
                 },
                 "required": ["user_id", "message"]
@@ -235,17 +234,17 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_mood_patterns",
-            description="Get mood patterns and insights for a user. Returns temporal patterns, volatility, and predictions.",
+            description="Get mood patterns, volatility, and predictions.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     },
                     "window_days": {
                         "type": "number",
-                        "description": "Number of days to analyze (default: 90)",
+                        "description": "days to analyze, default 90",
                         "minimum": 1
                     }
                 },
@@ -255,13 +254,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="resolve_conflict",
-            description="Resolve conflicting personality traits using enhanced conflict resolution.",
+            description="Resolve conflicting personality traits.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     },
                     "trait_objects": {
                         "type": "array",
@@ -275,25 +274,25 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="extract_personality_traits",
-            description="Extract personality traits from user interaction. Automatically learns from message style.",
+            description="Extract personality traits from message.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     },
                     "message": {
                         "type": "string",
-                        "description": "User's message"
+                        
                     },
                     "ai_response": {
                         "type": "string",
-                        "description": "AI's response (optional)"
+                        
                     },
                     "user_reaction": {
                         "type": "string",
-                        "description": "User's reaction to AI response (optional)"
+                        
                     }
                 },
                 "required": ["user_id", "message"]
@@ -302,21 +301,21 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_adaptive_prompt",
-            description="Get adaptive system prompt based on user's personality and mood.",
+            description="Get adaptive system prompt based on personality and mood.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     },
                     "message": {
                         "type": "string",
-                        "description": "Current user message"
+                        
                     },
                     "context": {
                         "type": "string",
-                        "description": "Interaction context (optional)"
+                        
                     }
                 },
                 "required": ["user_id", "message"]
@@ -325,13 +324,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_personality_summary",
-            description="Get human-readable summary of user's personality.",
+            description="Get human-readable personality summary.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     }
                 },
                 "required": ["user_id"]
@@ -340,13 +339,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="bootstrap_from_sample",
-            description="Bootstrap PLTM with sample conversation data for quick testing.",
+            description="Bootstrap PLTM with sample data for testing.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     }
                 },
                 "required": ["user_id"]
@@ -355,13 +354,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="bootstrap_from_messages",
-            description="Bootstrap PLTM from conversation messages. Analyzes messages to extract personality.",
+            description="Bootstrap PLTM from conversation messages.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {
                         "type": "string",
-                        "description": "User identifier"
+                        
                     },
                     "messages": {
                         "type": "array",
@@ -381,12 +380,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="track_trait_evolution",
-            description="Track how a personality trait has evolved over time. Shows timeline, trend, inflection points.",
+            description="Track trait changes over time.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "trait": {"type": "string", "description": "Trait to track (e.g., 'direct', 'technical')"},
+                    "trait": {"type": "string", "description": "Trait name"},
                     "window_days": {"type": "number", "default": 90}
                 },
                 "required": ["user_id", "trait"]
@@ -395,12 +394,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="predict_reaction",
-            description="Predict how user will react to a stimulus based on causal patterns.",
+            description="Predict user reaction to a stimulus.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "stimulus": {"type": "string", "description": "What you're about to say/do"}
+                    "stimulus": {"type": "string"}
                 },
                 "required": ["user_id", "stimulus"]
             }
@@ -408,7 +407,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_meta_patterns",
-            description="Get cross-context patterns - behaviors that appear across multiple domains.",
+            description="Get cross-context behavioral patterns.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -420,13 +419,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="learn_from_interaction",
-            description="Learn from an interaction - what worked, what didn't, update model.",
+            description="Learn from interaction outcome.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
                     "my_response": {"type": "string", "description": "What I (AI) said"},
-                    "user_reaction": {"type": "string", "description": "How user responded"}
+                    "user_reaction": {"type": "string"}
                 },
                 "required": ["user_id", "my_response", "user_reaction"]
             }
@@ -434,7 +433,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="predict_session",
-            description="Predict session dynamics from greeting. Infer mood and adapt immediately.",
+            description="Predict session dynamics from greeting.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -447,7 +446,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_self_model",
-            description="Get explicit self-model for meta-cognition. See what I know about user and my confidence.",
+            description="Get self-model for meta-cognition.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -459,7 +458,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="init_claude_session",
-            description="Initialize Claude personality session. Call at START of conversation to load Claude's evolved style for this user.",
+            description="Initialize Claude personality session. Call at START of conversation.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -471,13 +470,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="update_claude_style",
-            description="Update Claude's communication style for this user. Called when learning how to communicate better.",
+            description="Update Claude's communication style attribute.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "attribute": {"type": "string", "description": "Style attribute: verbosity, formality, initiative, code_preference, energy_matching"},
-                    "value": {"type": "string", "description": "New value for the attribute"}
+                    "attribute": {"type": "string", "description": "verbosity|formality|initiative|code_preference|energy_matching"},
+                    "value": {"type": "string"}
                 },
                 "required": ["user_id", "attribute", "value"]
             }
@@ -485,13 +484,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="learn_interaction_dynamic",
-            description="Learn what works or doesn't work with this user.",
+            description="Learn what works or doesn't with this user.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "behavior": {"type": "string", "description": "The behavior/approach (e.g., 'immediate_execution_no_asking')"},
-                    "works": {"type": "boolean", "description": "True if it works well, False if should avoid"}
+                    "behavior": {"type": "string"},
+                    "works": {"type": "boolean"}
                 },
                 "required": ["user_id", "behavior", "works"]
             }
@@ -504,7 +503,7 @@ async def list_tools() -> List[Tool]:
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "description": {"type": "string", "description": "Milestone description"},
+                    "description": {"type": "string"},
                     "significance": {"type": "number", "default": 0.8}
                 },
                 "required": ["user_id", "description"]
@@ -513,7 +512,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="add_shared_vocabulary",
-            description="Add a shared term/shorthand between Claude and user.",
+            description="Add shared term/shorthand.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -527,7 +526,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_claude_personality",
-            description="Get Claude's personality summary for this user - style, dynamics, shared context.",
+            description="Get Claude's personality for this user.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -539,7 +538,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="evolve_claude_personality",
-            description="Evolve Claude's personality based on interaction outcome. Core learning loop.",
+            description="Evolve Claude personality from interaction outcome.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -554,7 +553,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="check_pltm_available",
-            description="Quick check if user has PLTM data. Call this FIRST in any conversation to decide if to init. Returns should_init=true if personality exists.",
+            description="Check if user has PLTM data. Call FIRST to decide if to init.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -566,12 +565,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="pltm_mode",
-            description="Trigger phrase handler. When user says 'PLTM mode' or 'init PLTM', call this to auto-initialize and return full context.",
+            description="Trigger phrase handler for 'PLTM mode' auto-init.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "trigger_phrase": {"type": "string", "description": "The trigger phrase used (e.g., 'PLTM mode')"}
+                    "trigger_phrase": {"type": "string"}
                 },
                 "required": ["user_id"]
             }
@@ -579,7 +578,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="deep_personality_analysis",
-            description="Run comprehensive personality analysis from all conversation history. Extracts temporal patterns, emotional triggers, communication evolution, domain expertise, collaboration style.",
+            description="Run comprehensive personality analysis from history.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -591,12 +590,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="enrich_claude_personality",
-            description="Build rich, nuanced Claude personality from deep analysis. Returns detailed traits, learned preferences, emotional intelligence, meta-awareness.",
+            description="Build rich Claude personality from deep analysis.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "store_results": {"type": "boolean", "default": True, "description": "Whether to persist the rich personality"}
+                    "store_results": {"type": "boolean", "default": True}
                 },
                 "required": ["user_id"]
             }
@@ -604,13 +603,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="learn_from_url",
-            description="Learn from URL content. IMPORTANT: You MUST provide the actual text content in the 'content' parameter — you cannot fetch URLs yourself. Ask the user to paste the content, or skip if content is unavailable.",
+            description="Learn from URL content. User must provide text in 'content' param.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "url": {"type": "string", "description": "Source URL (for reference/attribution)"},
-                    "content": {"type": "string", "description": "REQUIRED: The actual text content from the URL. You cannot fetch this yourself — the user must provide it."},
-                    "source_type": {"type": "string", "description": "Optional: web_page, research_paper, code_repository, conversation, transcript"}
+                    "url": {"type": "string", "description": "Source URL"},
+                    "content": {"type": "string", "description": "Actual text content from URL (user must provide)"},
+                    "source_type": {"type": "string", "description": "web_page|research_paper|code_repository|conversation|transcript"}
                 },
                 "required": ["url", "content"]
             }
@@ -618,14 +617,14 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="learn_from_paper",
-            description="Learn from a research paper. Extracts findings, methodologies, results. For arXiv, journals, etc.",
+            description="Learn from a research paper. Extracts findings and methods.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "paper_id": {"type": "string", "description": "Paper ID (e.g., arXiv ID)"},
+                    "paper_id": {"type": "string", "description": "Paper ID"},
                     "title": {"type": "string"},
                     "abstract": {"type": "string"},
-                    "content": {"type": "string", "description": "Full paper text"},
+                    "content": {"type": "string"},
                     "authors": {"type": "array", "items": {"type": "string"}}
                 },
                 "required": ["paper_id", "title", "abstract", "content", "authors"]
@@ -634,7 +633,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="learn_from_code",
-            description="Learn from a code repository. Extracts design patterns, techniques, API patterns.",
+            description="Learn from a code repository. Extracts patterns.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -642,7 +641,7 @@ async def list_tools() -> List[Tool]:
                     "repo_name": {"type": "string"},
                     "description": {"type": "string"},
                     "languages": {"type": "array", "items": {"type": "string"}},
-                    "code_samples": {"type": "array", "items": {"type": "object"}, "description": "Array of {file, code} objects"}
+                    "code_samples": {"type": "array", "items": {"type": "object"}}
                 },
                 "required": ["repo_url", "repo_name", "languages", "code_samples"]
             }
@@ -650,7 +649,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_learning_stats",
-            description="Get statistics about learned knowledge - how many sources, domains, facts.",
+            description="Get learned knowledge statistics.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -660,11 +659,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="batch_ingest_wikipedia",
-            description="Batch ingest Wikipedia articles. Pass array of {title, content, url} objects.",
+            description="Batch ingest Wikipedia articles.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "articles": {"type": "array", "items": {"type": "object"}, "description": "Array of {title, content, url}"}
+                    "articles": {"type": "array", "items": {"type": "object"}}
                 },
                 "required": ["articles"]
             }
@@ -672,11 +671,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="batch_ingest_papers",
-            description="Batch ingest research papers. Pass array of paper objects with id, title, abstract, content, authors.",
+            description="Batch ingest research papers.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "papers": {"type": "array", "items": {"type": "object"}, "description": "Array of paper objects"}
+                    "papers": {"type": "array", "items": {"type": "object"}}
                 },
                 "required": ["papers"]
             }
@@ -684,11 +683,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="batch_ingest_repos",
-            description="Batch ingest GitHub repositories. Pass array of repo objects with url, name, languages, code_samples.",
+            description="Batch ingest GitHub repositories.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "repos": {"type": "array", "items": {"type": "object"}, "description": "Array of repo objects"}
+                    "repos": {"type": "array", "items": {"type": "object"}}
                 },
                 "required": ["repos"]
             }
@@ -696,7 +695,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_learning_schedule",
-            description="Get status of continuous learning schedules - what tasks are running, when they last ran.",
+            description="Get continuous learning schedule status.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -706,11 +705,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="run_learning_task",
-            description="Run a specific learning task immediately: arxiv_latest, github_trending, news_feed, knowledge_consolidation.",
+            description="Run a learning task: arxiv_latest, github_trending, news_feed, knowledge_consolidation.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "task_name": {"type": "string", "description": "Task to run: arxiv_latest, github_trending, news_feed, knowledge_consolidation"}
+                    "task_name": {"type": "string", "description": "arxiv_latest|github_trending|news_feed|knowledge_consolidation"}
                 },
                 "required": ["task_name"]
             }
@@ -718,7 +717,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="cross_domain_synthesis",
-            description="Run cross-domain synthesis to discover meta-patterns across all learned knowledge. AGI-level insight generation.",
+            description="Discover meta-patterns across all learned knowledge.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -728,7 +727,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_universal_principles",
-            description="Get discovered universal principles that appear across 3+ domains.",
+            description="Get universal principles appearing across 3+ domains.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -738,7 +737,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_transfer_suggestions",
-            description="Get suggestions for transferring knowledge between two domains.",
+            description="Get knowledge transfer suggestions between domains.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -751,7 +750,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="learn_from_conversation",
-            description="Learn from current conversation - extract valuable information worth remembering.",
+            description="Extract valuable information from conversation messages.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -766,7 +765,7 @@ async def list_tools() -> List[Tool]:
         # PLTM 2.0 - Universal Optimization Principles
         Tool(
             name="quantum_add_state",
-            description="Add memory state to superposition. Hold contradictions until query collapse.",
+            description="Add memory state to superposition.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -782,13 +781,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="quantum_query",
-            description="Query superposition with collapse. Context-dependent truth resolution.",
+            description="Query superposition with context-dependent collapse.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "subject": {"type": "string"},
                     "predicate": {"type": "string"},
-                    "context": {"type": "string", "description": "Optional context for collapse"}
+                    "context": {"type": "string"}
                 },
                 "required": ["subject", "predicate"]
             }
@@ -796,7 +795,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="quantum_peek",
-            description="Peek at superposition WITHOUT collapsing. See all possible states.",
+            description="Peek at superposition without collapsing.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -809,7 +808,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="attention_retrieve",
-            description="Retrieve memories weighted by attention to query. Transformer-style retrieval.",
+            description="Retrieve memories weighted by attention to query.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -824,7 +823,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="attention_multihead",
-            description="Multi-head attention retrieval - different aspects of query.",
+            description="Multi-head attention retrieval.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -838,7 +837,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="knowledge_add_concept",
-            description="Add concept to knowledge graph with connections. Network effects.",
+            description="Add concept to knowledge graph with connections.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -865,7 +864,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="knowledge_bridges",
-            description="Find bridge concepts connecting different domains.",
+            description="Find bridge concepts connecting domains.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -877,7 +876,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="knowledge_stats",
-            description="Get knowledge graph statistics - nodes, edges, density.",
+            description="Get knowledge graph statistics.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -887,7 +886,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="self_improve_cycle",
-            description="Run one recursive self-improvement cycle. AGI bootstrap.",
+            description="Run one recursive self-improvement cycle.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -897,7 +896,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="self_improve_meta_learn",
-            description="Meta-learn from improvement history. Learn how to learn better.",
+            description="Meta-learn from improvement history.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -907,7 +906,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="self_improve_history",
-            description="Get history of self-improvements and their effects.",
+            description="Get self-improvement history.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -917,7 +916,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="quantum_cleanup",
-            description="Garbage collect old quantum states. Prevents memory leaks.",
+            description="Garbage collect old quantum states.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -927,7 +926,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="quantum_stats",
-            description="Get quantum memory statistics - superposed, collapsed, limits.",
+            description="Get quantum memory statistics.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -947,7 +946,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="criticality_state",
-            description="Get current criticality state - entropy, integration, zone (subcritical/critical/supercritical).",
+            description="Get criticality state: entropy, integration, zone.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -957,7 +956,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="criticality_recommend",
-            description="Get recommendation for maintaining criticality - explore or consolidate.",
+            description="Get recommendation: explore or consolidate.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -967,7 +966,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="criticality_adjust",
-            description="Auto-adjust system toward critical point (edge of chaos).",
+            description="Auto-adjust toward critical point.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -977,7 +976,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="criticality_history",
-            description="Get history of criticality states and trends.",
+            description="Get criticality state history.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -987,19 +986,19 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="add_provenance",
-            description="Add provenance (citation) for a claim. Required for verifiable claims.",
+            description="Add citation/provenance for a claim.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "claim_id": {"type": "string", "description": "ID of the atom/claim"},
-                    "source_type": {"type": "string", "enum": ["arxiv", "github", "wikipedia", "doi", "url", "book", "internal"], "description": "Type of source"},
-                    "source_url": {"type": "string", "description": "Full URL or identifier"},
-                    "source_title": {"type": "string", "description": "Paper title, repo name, etc."},
-                    "quoted_span": {"type": "string", "description": "Exact text supporting the claim"},
-                    "page_or_section": {"type": "string", "description": "Location in source (e.g., p.3, §2.1)"},
-                    "confidence": {"type": "number", "description": "How directly source supports claim (0-1)"},
-                    "arxiv_id": {"type": "string", "description": "arXiv ID if applicable"},
-                    "authors": {"type": "string", "description": "Comma-separated author names"}
+                    "claim_id": {"type": "string"},
+                    "source_type": {"type": "string", "enum": ["arxiv", "github", "wikipedia", "doi", "url", "book", "internal"]},
+                    "source_url": {"type": "string"},
+                    "source_title": {"type": "string"},
+                    "quoted_span": {"type": "string"},
+                    "page_or_section": {"type": "string", "description": "Location in source"},
+                    "confidence": {"type": "number"},
+                    "arxiv_id": {"type": "string"},
+                    "authors": {"type": "string"}
                 },
                 "required": ["claim_id", "source_type", "source_url", "quoted_span", "confidence"]
             }
@@ -1007,11 +1006,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_provenance",
-            description="Get provenance (citations) for a claim.",
+            description="Get citations for a claim.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "claim_id": {"type": "string", "description": "ID of the atom/claim"}
+                    "claim_id": {"type": "string"}
                 },
                 "required": ["claim_id"]
             }
@@ -1019,7 +1018,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="provenance_stats",
-            description="Get provenance statistics - how many claims are verified vs unverified.",
+            description="Get provenance statistics: verified vs unverified.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -1029,7 +1028,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="unverified_claims",
-            description="Get list of claims that lack proper provenance (need citations).",
+            description="Get claims lacking proper citations.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -1039,15 +1038,15 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="mmr_retrieve",
-            description="MMR (Maximal Marginal Relevance) retrieval for diverse context selection. Per Carbonell & Goldstein (1998).",
+            description="MMR retrieval for diverse context selection.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID"},
-                    "query": {"type": "string", "description": "Query/context for retrieval"},
-                    "top_k": {"type": "integer", "description": "Number of diverse items to return (default 5)"},
-                    "lambda_param": {"type": "number", "description": "Relevance weight 0-1 (0.6=balanced, higher=more relevant, lower=more diverse)"},
-                    "min_dissim": {"type": "number", "description": "Minimum dissimilarity threshold (default 0.25)"}
+                    "user_id": {"type": "string"},
+                    "query": {"type": "string"},
+                    "top_k": {"type": "integer", "description": "default 5"},
+                    "lambda_param": {"type": "number", "description": "0=diverse, 1=relevant, default 0.6"},
+                    "min_dissim": {"type": "number", "description": "default 0.25"}
                 },
                 "required": ["user_id", "query"]
             }
@@ -1056,15 +1055,15 @@ async def list_tools() -> List[Tool]:
         # === TRUE ACTION ACCOUNTING (Georgiev AAE) ===
         Tool(
             name="record_action",
-            description="Record an action/operation for true AAE (Average Action Efficiency) tracking. Replaces proxy metrics.",
+            description="Record action for AAE (Average Action Efficiency) tracking.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "operation": {"type": "string", "description": "Operation type: hypothesis_gen, memory_store, retrieval, inference, etc."},
-                    "tokens_used": {"type": "integer", "description": "Actual token count consumed"},
-                    "latency_ms": {"type": "number", "description": "Wall-clock time in milliseconds"},
-                    "success": {"type": "boolean", "description": "Whether operation achieved its goal"},
-                    "context": {"type": "string", "description": "Optional context string"}
+                    "operation": {"type": "string", "description": "Operation type"},
+                    "tokens_used": {"type": "integer"},
+                    "latency_ms": {"type": "number"},
+                    "success": {"type": "boolean"},
+                    "context": {"type": "string"}
                 },
                 "required": ["operation", "tokens_used", "latency_ms", "success"]
             }
@@ -1072,11 +1071,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_aae",
-            description="Get current AAE (Average Action Efficiency) metrics. AAE = events/action, unit_action = action/events.",
+            description="Get current AAE metrics.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "last_n": {"type": "integer", "description": "Only consider last N records (default: all)"}
+                    "last_n": {"type": "integer"}
                 },
                 "required": []
             }
@@ -1084,11 +1083,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="aae_trend",
-            description="Get AAE trend over recent windows. Shows if efficiency is improving/declining.",
+            description="Get AAE trend over recent windows.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "window_size": {"type": "integer", "description": "Records per window (default 10)"}
+                    "window_size": {"type": "integer", "description": "default 10"}
                 },
                 "required": []
             }
@@ -1096,11 +1095,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="start_action_cycle",
-            description="Start a new action measurement cycle for grouped AAE tracking.",
+            description="Start action measurement cycle.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "cycle_id": {"type": "string", "description": "Unique cycle identifier (e.g., C21, C22)"}
+                    "cycle_id": {"type": "string"}
                 },
                 "required": ["cycle_id"]
             }
@@ -1108,11 +1107,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="end_action_cycle",
-            description="End current action cycle and get AAE metrics for that cycle.",
+            description="End action cycle and get metrics.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "cycle_id": {"type": "string", "description": "Cycle ID to end (default: current)"}
+                    "cycle_id": {"type": "string"}
                 },
                 "required": []
             }
@@ -1121,13 +1120,13 @@ async def list_tools() -> List[Tool]:
         # === ENTROPY INJECTION ===
         Tool(
             name="inject_entropy_random",
-            description="Inject entropy by sampling from random/least-accessed domains. Breaks conceptual neighborhoods.",
+            description="Inject entropy from random/least-accessed domains.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID"},
-                    "n_domains": {"type": "integer", "description": "Number of domains to sample (default 3)"},
-                    "memories_per_domain": {"type": "integer", "description": "Memories per domain (default 2)"}
+                    "user_id": {"type": "string"},
+                    "n_domains": {"type": "integer", "description": "default 3"},
+                    "memories_per_domain": {"type": "integer", "description": "default 2"}
                 },
                 "required": ["user_id"]
             }
@@ -1135,13 +1134,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="inject_entropy_antipodal",
-            description="Inject entropy by finding memories maximally distant from current context.",
+            description="Find memories maximally distant from current context.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID"},
-                    "current_context": {"type": "string", "description": "Current context to find distant memories from"},
-                    "n_memories": {"type": "integer", "description": "Number of distant memories to find (default 5)"}
+                    "user_id": {"type": "string"},
+                    "current_context": {"type": "string"},
+                    "n_memories": {"type": "integer", "description": "default 5"}
                 },
                 "required": ["user_id", "current_context"]
             }
@@ -1149,13 +1148,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="inject_entropy_temporal",
-            description="Inject entropy by mixing old and recent memories. Prevents recency bias.",
+            description="Mix old and recent memories to prevent recency bias.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID"},
-                    "n_old": {"type": "integer", "description": "Number of old memories (default 3)"},
-                    "n_recent": {"type": "integer", "description": "Number of recent memories (default 2)"}
+                    "user_id": {"type": "string"},
+                    "n_old": {"type": "integer", "description": "default 3"},
+                    "n_recent": {"type": "integer", "description": "default 2"}
                 },
                 "required": ["user_id"]
             }
@@ -1163,11 +1162,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="entropy_stats",
-            description="Get entropy statistics for a user. Diagnoses if entropy injection is needed.",
+            description="Get entropy statistics.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID"}
+                    "user_id": {"type": "string"}
                 },
                 "required": ["user_id"]
             }
@@ -1176,11 +1175,11 @@ async def list_tools() -> List[Tool]:
         # === ARXIV INGESTION (Real Provenance) ===
         Tool(
             name="ingest_arxiv",
-            description="Ingest an arXiv paper: fetch metadata, extract claims, store with REAL provenance (URL, authors, quoted spans).",
+            description="Ingest arXiv paper with real provenance.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "arxiv_id": {"type": "string", "description": "ArXiv paper ID (e.g., '1706.03762' for Attention paper)"},
+                    "arxiv_id": {"type": "string", "description": "ArXiv paper ID"},
                     "user_id": {"type": "string", "description": "User/subject to store claims under (default: pltm_knowledge)"}
                 },
                 "required": ["arxiv_id"]
@@ -1189,12 +1188,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="search_arxiv",
-            description="Search arXiv for papers matching a query. Returns paper IDs for ingestion.",
+            description="Search arXiv for papers.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "Search query (title, abstract, author)"},
-                    "max_results": {"type": "integer", "description": "Maximum papers to return (default 5)"}
+                    "query": {"type": "string"},
+                    "max_results": {"type": "integer", "description": "default 5"}
                 },
                 "required": ["query"]
             }
@@ -1202,11 +1201,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="arxiv_history",
-            description="Get history of ingested arXiv papers.",
+            description="Get ingested arXiv paper history.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "last_n": {"type": "integer", "description": "Number of recent ingestions (default 10)"}
+                    "last_n": {"type": "integer", "description": "default 10"}
                 },
                 "required": []
             }
@@ -1215,15 +1214,15 @@ async def list_tools() -> List[Tool]:
         # === EPISTEMIC HYGIENE TOOLS ===
         Tool(
             name="check_before_claiming",
-            description="Pre-response confidence check. Call BEFORE making any factual claim. Returns adjusted confidence, whether to proceed, and required actions.",
+            description="Pre-response confidence check before factual claims.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "claim": {"type": "string", "description": "The factual claim to check"},
-                    "felt_confidence": {"type": "number", "description": "Your felt confidence 0-1"},
-                    "domain": {"type": "string", "description": "Domain of the claim (default: general)"},
-                    "has_verified": {"type": "boolean", "description": "Whether you've verified this claim"},
-                    "epistemic_status": {"type": "string", "description": "Source: TRAINING_DATA, VERIFIED, REASONING, USER_STATED"}
+                    "claim": {"type": "string"},
+                    "felt_confidence": {"type": "number"},
+                    "domain": {"type": "string", "description": "default: general"},
+                    "has_verified": {"type": "boolean"},
+                    "epistemic_status": {"type": "string", "description": "TRAINING_DATA|VERIFIED|REASONING|USER_STATED"}
                 },
                 "required": ["claim", "felt_confidence"]
             }
@@ -1231,15 +1230,15 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="log_claim",
-            description="Log a factual claim for later verification. Tracks confidence calibration over time.",
+            description="Log a factual claim for calibration tracking.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "claim": {"type": "string", "description": "The claim being made"},
-                    "felt_confidence": {"type": "number", "description": "Confidence level 0-1"},
-                    "domain": {"type": "string", "description": "Domain (default: general)"},
-                    "epistemic_status": {"type": "string", "description": "Source: TRAINING_DATA, VERIFIED, REASONING, USER_STATED"},
-                    "has_verified": {"type": "boolean", "description": "Whether verified before claiming"}
+                    "claim": {"type": "string"},
+                    "felt_confidence": {"type": "number"},
+                    "domain": {"type": "string", "description": "default: general"},
+                    "epistemic_status": {"type": "string", "description": "TRAINING_DATA|VERIFIED|REASONING|USER_STATED"},
+                    "has_verified": {"type": "boolean"}
                 },
                 "required": ["claim", "felt_confidence"]
             }
@@ -1247,15 +1246,15 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="resolve_claim",
-            description="Resolve a previously logged claim as correct or incorrect. Updates calibration.",
+            description="Resolve a logged claim as correct/incorrect.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "claim_id": {"type": "string", "description": "ID of the claim to resolve"},
-                    "claim_text": {"type": "string", "description": "Text of claim (alternative to claim_id)"},
-                    "was_correct": {"type": "boolean", "description": "Whether the claim was correct"},
-                    "correction_source": {"type": "string", "description": "Source of correction"},
-                    "correction_detail": {"type": "string", "description": "Details of correction"}
+                    "claim_id": {"type": "string"},
+                    "claim_text": {"type": "string"},
+                    "was_correct": {"type": "boolean"},
+                    "correction_source": {"type": "string"},
+                    "correction_detail": {"type": "string"}
                 },
                 "required": ["was_correct"]
             }
@@ -1263,11 +1262,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_calibration",
-            description="Get calibration curves and accuracy stats. Shows: when you feel X% confident, you're actually Y% accurate.",
+            description="Get calibration curves and accuracy stats.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "domain": {"type": "string", "description": "Domain to check (empty for all)"}
+                    "domain": {"type": "string", "description": "empty for all"}
                 },
                 "required": []
             }
@@ -1275,13 +1274,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="calibrate_confidence_live",
-            description="Real-time confidence calibration with suggested phrasing. Returns calibrated confidence + hedged language.",
+            description="Real-time confidence calibration with hedged phrasing.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "claim": {"type": "string", "description": "The claim to calibrate"},
-                    "felt_confidence": {"type": "number", "description": "Your felt confidence 0-1"},
-                    "domain": {"type": "string", "description": "Domain (default: general)"}
+                    "claim": {"type": "string"},
+                    "felt_confidence": {"type": "number"},
+                    "domain": {"type": "string", "description": "default: general"}
                 },
                 "required": ["claim", "felt_confidence"]
             }
@@ -1290,11 +1289,11 @@ async def list_tools() -> List[Tool]:
         # === PERSONALITY / SELF-MODELING TOOLS ===
         Tool(
             name="self_profile",
-            description="Get comprehensive self-profile: communication style, curiosity patterns, values, reasoning tendencies. A mirror for self-awareness.",
+            description="Get self-profile: style, curiosity, values, reasoning.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID (default: claude)"}
+                    "user_id": {"type": "string", "description": "default: claude"}
                 },
                 "required": []
             }
@@ -1302,12 +1301,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_longitudinal_stats",
-            description="Cross-conversation analytics with personality evolution. Tracks accuracy, confabulation, communication style, curiosity, values over time.",
+            description="Cross-conversation analytics with personality evolution.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID (default: claude)"},
-                    "days": {"type": "integer", "description": "Number of days to look back (default: 30)"}
+                    "user_id": {"type": "string", "description": "default: claude"},
+                    "days": {"type": "integer", "description": "default: 30"}
                 },
                 "required": []
             }
@@ -1315,11 +1314,11 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="bootstrap_self_model",
-            description="Bootstrap self-model from existing data. Analyzes all stored atoms, communication, curiosity, and reasoning data to build initial self-profile.",
+            description="Bootstrap self-model from existing data.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID (default: claude)"}
+                    "user_id": {"type": "string", "description": "default: claude"}
                 },
                 "required": []
             }
@@ -1327,14 +1326,14 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="track_curiosity_spike",
-            description="Track when Claude shows genuine interest vs performative engagement. Records curiosity indicators.",
+            description="Track genuine interest vs performative engagement.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "topic": {"type": "string", "description": "Topic of interest"},
-                    "indicators": {"type": "array", "items": {"type": "string"}, "description": "Indicators: asked_followup_questions, autonomous_research_initiated, went_deeper_than_required, showed_excitement_markers, connected_to_other_interests, requested_more_data, generated_novel_questions"},
-                    "engagement_score": {"type": "number", "description": "Engagement level 0-1 (default: 0.5)"},
-                    "context": {"type": "string", "description": "Context of the curiosity spike"}
+                    "topic": {"type": "string"},
+                    "indicators": {"type": "array", "items": {"type": "string"}, "description": "Curiosity indicators"},
+                    "engagement_score": {"type": "number"},
+                    "context": {"type": "string"}
                 },
                 "required": ["topic", "indicators"]
             }
@@ -1342,13 +1341,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="learn_communication_style",
-            description="Track communication style in a specific context. Auto-analyzes response text for verbosity, jargon, hedging, tone.",
+            description="Track communication style in context.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "context": {"type": "string", "description": "Context (e.g., 'technical_explanation', 'casual_chat')"},
-                    "response_text": {"type": "string", "description": "The response text to analyze"},
-                    "markers": {"type": "object", "description": "Optional manual markers to override auto-analysis"}
+                    "context": {"type": "string"},
+                    "response_text": {"type": "string"},
+                    "markers": {"type": "object"}
                 },
                 "required": ["context", "response_text"]
             }
@@ -1357,13 +1356,13 @@ async def list_tools() -> List[Tool]:
         # === CROSS-MODEL TOOLS ===
         Tool(
             name="route_llm_task",
-            description="Route an LLM task to the best available provider based on task type, cost, privacy requirements.",
+            description="Route LLM task to best provider.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "task_type": {"type": "string", "description": "Task type: analysis, coding, creative, factual, summarization, translation"},
-                    "prefer_provider": {"type": "string", "description": "Preferred provider: ollama, groq, deepseek, openai, anthropic"},
-                    "require_privacy": {"type": "boolean", "description": "If true, only use local models"}
+                    "task_type": {"type": "string", "description": "analysis|coding|creative|factual|summarization|translation"},
+                    "prefer_provider": {"type": "string", "description": "ollama|groq|deepseek|openai|anthropic"},
+                    "require_privacy": {"type": "boolean"}
                 },
                 "required": []
             }
@@ -1372,11 +1371,11 @@ async def list_tools() -> List[Tool]:
         # === SESSION TOOLS ===
         Tool(
             name="auto_init_session",
-            description="PERSISTENT IDENTITY LOADER. Call at START of conversation. Loads personality, goals, calibration, last session context. Claude wakes up knowing its identity.",
+            description="PERSISTENT IDENTITY LOADER. Call at START of conversation.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "User ID (default: claude)"}
+                    "user_id": {"type": "string", "description": "default: claude"}
                 },
                 "required": []
             }
@@ -1384,15 +1383,15 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="end_session",
-            description="End session: record stats, take personality snapshot, AND auto-extract learnings into typed memories. Provide learnings as structured observations from the conversation. Each learning becomes a typed memory (episodic, semantic, belief, or procedural).",
+            description="End session: snapshot personality, extract learnings into typed memories.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "summary": {"type": "string", "description": "Session summary"},
-                    "user_id": {"type": "string", "description": "User ID (default: claude)"},
+                    "summary": {"type": "string"},
+                    "user_id": {"type": "string", "description": "default: claude"},
                     "learnings": {
                         "type": "array",
-                        "description": "Structured learnings to extract from this session",
+                        "description": "Learnings to extract",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -1414,13 +1413,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="generate_memory_prompt",
-            description="Generate a context block from relevant memories to use at conversation start. Combines: user profile (strongest facts), active beliefs, recent episodes, relevant procedures, and any contradictions to resolve. Returns a structured prompt section Claude can use to personalize responses.",
+            description="Generate context block from relevant memories for conversation start.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "conversation_topic": {"type": "string", "description": "Optional: topic hint to prioritize relevant memories"},
-                    "max_tokens": {"type": "integer", "description": "Approximate token budget for the prompt (default 500)"},
+                    "conversation_topic": {"type": "string", "description": "Topic hint"},
+                    "max_tokens": {"type": "integer", "description": "Token budget, default 500"},
                 },
                 "required": ["user_id"]
             }
@@ -1428,7 +1427,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="belief_auto_check",
-            description="Re-evaluate all beliefs against current semantic evidence. Uses embedding similarity to find supporting/contradicting facts. Adjusts confidence automatically. Run periodically or after storing new semantic memories.",
+            description="Re-evaluate beliefs against current semantic evidence.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1440,12 +1439,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="jury_stats",
-            description="Get Judge/Jury system statistics. Shows per-judge accuracy, confidence, latency, conflict detection rates, and recent deliberation history. The jury validates every memory before storage (Safety + Quality + Temporal + Consensus), with MetaJudge tracking judge performance.",
+            description="Get jury system stats: per-judge accuracy, MetaJudge performance.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "include_history": {"type": "boolean", "description": "Include recent deliberation history (default true)"},
-                    "history_limit": {"type": "integer", "description": "Number of recent history entries (default 20)"},
+                    "include_history": {"type": "boolean"},
+                    "history_limit": {"type": "integer"},
                 },
                 "required": []
             }
@@ -1453,13 +1452,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="jury_feedback",
-            description="Record ground truth feedback for the Judge/Jury MetaJudge. Call when a user corrects/deletes a memory (false_positive), re-submits a rejected memory (false_negative), or confirms a memory is correct (confirmed). This trains the MetaJudge to adaptively weight judges.",
+            description="Record ground truth feedback for MetaJudge training.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "memory_id": {"type": "string", "description": "ID of the memory"},
-                    "feedback_type": {"type": "string", "enum": ["false_positive", "false_negative", "confirmed"], "description": "Type of feedback"},
-                    "details": {"type": "string", "description": "Optional details about the feedback"},
+                    "memory_id": {"type": "string"},
+                    "feedback_type": {"type": "string", "enum": ["false_positive", "false_negative", "confirmed"]},
+                    "details": {"type": "string"},
                 },
                 "required": ["memory_id", "feedback_type"]
             }
@@ -1467,14 +1466,14 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="process_message",
-            description="Run a message through the full 3-lane typed memory pipeline: (1) Fast Lane extracts typed memories from text, (2) Jury Lane validates each memory (Safety/Quality/Temporal), (3) Write Lane reconciles against existing memories (dedup/supersede/merge). Auto-stores approved memories. Use this to learn from conversation messages.",
+            description="Run message through 3-lane pipeline: extract, validate, store.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "message": {"type": "string", "description": "The message text to extract memories from"},
+                    "message": {"type": "string"},
                     "user_id": {"type": "string"},
-                    "context": {"type": "string", "description": "Optional conversation context"},
-                    "auto_tag": {"type": "boolean", "description": "Auto-classify memories into taxonomy domains (default true)"},
+                    "context": {"type": "string"},
+                    "auto_tag": {"type": "boolean"},
                 },
                 "required": ["message", "user_id"]
             }
@@ -1482,13 +1481,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="process_message_batch",
-            description="Run multiple messages through the 3-lane pipeline. Useful for ingesting conversation history.",
+            description="Run multiple messages through 3-lane pipeline.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "messages": {"type": "array", "items": {"type": "string"}, "description": "List of messages to process"},
+                    "messages": {"type": "array", "items": {"type": "string"}},
                     "user_id": {"type": "string"},
-                    "context": {"type": "string", "description": "Optional conversation context"},
+                    "context": {"type": "string"},
                 },
                 "required": ["messages", "user_id"]
             }
@@ -1496,7 +1495,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="pipeline_stats",
-            description="Get 3-lane pipeline statistics: extraction patterns, jury verdicts, reconciliation actions, messages processed.",
+            description="Get 3-lane pipeline statistics.",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -1507,90 +1506,90 @@ async def list_tools() -> List[Tool]:
         # === MEMORY INTELLIGENCE TOOLS ===
         Tool(
             name="apply_memory_decay",
-            description="Apply Ebbinghaus forgetting curve to all memories. Recalculates strength based on time since last access and type-specific half-lives. Run periodically to keep memory strengths realistic.",
+            description="Apply Ebbinghaus forgetting curve to all memories.",
             inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
         ),
         Tool(
             name="decay_forecast",
-            description="Forecast which memories will decay below threshold in the next N hours. Helps identify memories that need rehearsal.",
-            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "hours_ahead": {"type": "integer", "description": "Hours to forecast (default 168 = 1 week)"}}, "required": ["user_id"]}
+            description="Forecast which memories will decay below threshold.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "hours_ahead": {"type": "integer", "description": "default 168 (1 week)"}}, "required": ["user_id"]}
         ),
         Tool(
             name="consolidate_memories",
-            description="Promote repeated episodic patterns into semantic memories using embedding-based clustering. Finds clusters of similar episodes and creates consolidated semantic facts.",
-            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "min_cluster_size": {"type": "integer", "description": "Min episodes to form cluster (default 3)"}, "similarity_threshold": {"type": "number", "description": "Embedding similarity threshold (default 0.55)"}}, "required": ["user_id"]}
+            description="Promote repeated episodic patterns into semantic memories.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "min_cluster_size": {"type": "integer", "description": "default 3"}, "similarity_threshold": {"type": "number", "description": "default 0.55"}}, "required": ["user_id"]}
         ),
         Tool(
             name="contextual_retrieve",
-            description="RAG-style retrieval: given recent conversation messages, retrieve the most relevant memories and build a structured prompt block for system prompt injection.",
-            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "messages": {"type": "array", "items": {"type": "string"}, "description": "Recent conversation messages"}, "max_memories": {"type": "integer", "description": "Max memories to inject (default 12)"}}, "required": ["user_id", "messages"]}
+            description="RAG-style retrieval: build prompt block from relevant memories.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "messages": {"type": "array", "items": {"type": "string"}}, "max_memories": {"type": "integer", "description": "default 12"}}, "required": ["user_id", "messages"]}
         ),
         Tool(
             name="rank_by_importance",
-            description="Rank all memories by importance score. Factors: type weight, access frequency, recency, strength, confidence, consolidation count.",
-            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "limit": {"type": "integer", "description": "Max results (default 50)"}}, "required": ["user_id"]}
+            description="Rank memories by importance score.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "limit": {"type": "integer", "description": "default 50"}}, "required": ["user_id"]}
         ),
         Tool(
             name="surface_conflicts",
-            description="Detect memory contradictions and surface them as actionable items for user resolution. Returns conflict pairs with resolution options (keep_a, keep_b, keep_both, delete_both).",
+            description="Detect contradicting memories with resolution options.",
             inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
         ),
         Tool(
             name="resolve_conflict",
-            description="Resolve a surfaced memory conflict. Actions: keep_a, keep_b, keep_both, delete_both.",
+            description="Resolve conflicting personality traits.",
             inputSchema={"type": "object", "properties": {"conflict_id": {"type": "string"}, "action": {"type": "string", "enum": ["keep_a", "keep_b", "keep_both", "delete_both"]}, "user_id": {"type": "string"}}, "required": ["conflict_id", "action", "user_id"]}
         ),
         Tool(
             name="memory_clusters",
-            description="Build topic clusters from all memories using embedding similarity. Groups related memories for 'tell me everything about X' queries.",
-            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "similarity_threshold": {"type": "number", "description": "Clustering threshold (default 0.5)"}, "min_cluster_size": {"type": "integer", "description": "Min cluster size (default 2)"}}, "required": ["user_id"]}
+            description="Build topic clusters from memories using embedding similarity.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "similarity_threshold": {"type": "number", "description": "default 0.5"}, "min_cluster_size": {"type": "integer", "description": "default 2"}}, "required": ["user_id"]}
         ),
         Tool(
             name="share_memory",
-            description="Share a memory with another user. Supports read/write permissions.",
+            description="Share a memory with another user.",
             inputSchema={"type": "object", "properties": {"memory_id": {"type": "string"}, "owner_id": {"type": "string"}, "target_user_id": {"type": "string"}, "permission": {"type": "string", "enum": ["read", "write"]}}, "required": ["memory_id", "owner_id", "target_user_id"]}
         ),
         Tool(
             name="shared_with_me",
-            description="Get all memories shared with a user by other users.",
+            description="Get memories shared with this user.",
             inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
         ),
         Tool(
             name="export_memory_profile",
-            description="Export all memories for a user as a portable JSON structure. Can be imported into another instance.",
+            description="Export all memories as portable JSON.",
             inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
         ),
         Tool(
             name="import_memory_profile",
-            description="Import a memory profile from JSON. Supports merge (keep existing) or replace modes.",
-            inputSchema={"type": "object", "properties": {"profile_json": {"type": "string", "description": "JSON string of exported profile"}, "target_user_id": {"type": "string"}, "merge": {"type": "boolean", "description": "Merge with existing (default true)"}}, "required": ["profile_json"]}
+            description="Import memory profile from JSON.",
+            inputSchema={"type": "object", "properties": {"profile_json": {"type": "string"}, "target_user_id": {"type": "string"}, "merge": {"type": "boolean"}}, "required": ["profile_json"]}
         ),
         Tool(
             name="memory_provenance",
-            description="Get the provenance chain for a memory: which conversation, message, extraction pattern, and jury verdict created it.",
+            description="Get provenance chain for a memory.",
             inputSchema={"type": "object", "properties": {"memory_id": {"type": "string"}}, "required": ["memory_id"]}
         ),
         Tool(
             name="apply_confidence_decay",
-            description="Apply gradual confidence reduction to beliefs with contradicting evidence. More nuanced than binary supersede/keep.",
+            description="Apply gradual confidence reduction to contradicted beliefs.",
             inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
         ),
         Tool(
             name="memory_audit",
-            description="Run a full memory health audit: decay, consolidation, belief check, contradiction detection, clustering, pruning, jury health. Returns health score 0-100.",
+            description="Full memory health audit. Returns health score 0-100.",
             inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
         ),
 
         # === EXPERIMENT / RESEARCH TOOLS ===
         Tool(
             name="trace_claim_reasoning",
-            description="Audit trail for epistemic decisions. Shows WHY a claim was blocked/adjusted: calibration data, intervention history, adjusted confidence, and the full decision chain.",
+            description="Audit trail for epistemic decisions.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "claim": {"type": "string", "description": "The claim to trace (searches prediction_book and interventions)"},
-                    "claim_id": {"type": "string", "description": "Specific claim ID to trace"},
-                    "domain": {"type": "string", "description": "Domain to check calibration for"}
+                    "claim": {"type": "string"},
+                    "claim_id": {"type": "string"},
+                    "domain": {"type": "string"}
                 },
                 "required": []
             }
@@ -1598,13 +1597,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="constraint_sensitivity_test",
-            description="Experimental: Test how calibration changes affect claim-space. Simulates different calibration levels and shows what would be blocked/allowed. Does NOT modify actual calibration.",
+            description="Simulate calibration changes (read-only).",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "domain": {"type": "string", "description": "Domain to test (e.g., technical_specs)"},
-                    "simulated_accuracy": {"type": "number", "description": "Simulated accuracy ratio 0-1 (e.g., 0.5 = pretend 50% accuracy)"},
-                    "test_claims": {"type": "array", "items": {"type": "object", "properties": {"claim": {"type": "string"}, "felt_confidence": {"type": "number"}}}, "description": "Claims to test against simulated calibration"}
+                    "domain": {"type": "string"},
+                    "simulated_accuracy": {"type": "number", "description": "Simulated accuracy 0-1"},
+                    "test_claims": {"type": "array", "items": {"type": "object", "properties": {"claim": {"type": "string"}, "felt_confidence": {"type": "number"}}}}
                 },
                 "required": ["domain", "simulated_accuracy"]
             }
@@ -1612,13 +1611,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="domain_cognitive_map",
-            description="Map the cognitive topology of a domain or all domains: claim counts, error rates, failure patterns, calibration quality. Data for Deep Claude analysis.",
+            description="Map cognitive topology of a domain.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "domain": {"type": "string", "description": "Specific domain (empty for all)"},
-                    "include_claims": {"type": "boolean", "description": "Include individual claim details (default false)"},
-                    "include_interventions": {"type": "boolean", "description": "Include intervention history (default false)"}
+                    "domain": {"type": "string", "description": "empty for all"},
+                    "include_claims": {"type": "boolean"},
+                    "include_interventions": {"type": "boolean"}
                 },
                 "required": []
             }
@@ -1627,12 +1626,12 @@ async def list_tools() -> List[Tool]:
         # === DATA ACCESS ===
         Tool(
             name="query_pltm_sql",
-            description="Direct read-only SQL query against the PLTM database. For advanced data exploration. Only SELECT queries allowed.",
+            description="Direct read-only SQL query against PLTM database.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "sql": {"type": "string", "description": "SQL SELECT query to execute"},
-                    "params": {"type": "array", "items": {"type": "string"}, "description": "Query parameters (optional)"}
+                    "sql": {"type": "string"},
+                    "params": {"type": "array", "items": {"type": "string"}}
                 },
                 "required": ["sql"]
             }
@@ -1641,15 +1640,15 @@ async def list_tools() -> List[Tool]:
         # === TYPED MEMORY SYSTEM ===
         Tool(
             name="store_episodic",
-            description="Store an episodic memory — a specific event/interaction with temporal context. Episodic memories decay fast (~2 days) unless recalled. Use for: specific conversations, user reactions, notable moments.",
+            description="Store episodic memory (event/interaction). Fast decay ~2 days.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "content": {"type": "string", "description": "What happened (e.g., 'User got frustrated when I gave verbose answer')"},
-                    "context": {"type": "string", "description": "When/where (e.g., 'debugging session, late night')"},
-                    "emotional_valence": {"type": "number", "description": "-1 (negative) to +1 (positive)", "minimum": -1, "maximum": 1},
-                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags for grouping (e.g., ['frustration', 'verbosity'])"},
+                    "content": {"type": "string", "description": "What happened"},
+                    "context": {"type": "string", "description": "When/where"},
+                    "emotional_valence": {"type": "number", "minimum": -1, "maximum": 1},
+                    "tags": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["user_id", "content"]
             }
@@ -1657,14 +1656,14 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="store_semantic",
-            description="Store a semantic memory — a general fact or stable knowledge about the user. Semantic memories are very stable (~30 day half-life). Use for: established preferences, facts, expertise areas.",
+            description="Store semantic memory (stable fact). Slow decay ~30 days.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "content": {"type": "string", "description": "The fact (e.g., 'User prefers concise responses')"},
-                    "confidence": {"type": "number", "description": "How certain 0-1", "minimum": 0, "maximum": 1},
-                    "source": {"type": "string", "description": "How we know: user_stated, observed, inferred, consolidated"},
+                    "content": {"type": "string", "description": "The fact"},
+                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                    "source": {"type": "string", "description": "user_stated|observed|inferred|consolidated"},
                     "tags": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["user_id", "content"]
@@ -1673,13 +1672,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="store_belief",
-            description="Store a belief — an inference or opinion that may be wrong. Beliefs are confidence-tracked and revisable. Use for: hypotheses about the user, uncertain inferences, predictions.",
+            description="Store belief (revisable inference). Confidence-tracked.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "content": {"type": "string", "description": "The belief (e.g., 'User likely has CS background based on terminology')"},
-                    "confidence": {"type": "number", "description": "How confident 0-1", "minimum": 0, "maximum": 1},
+                    "content": {"type": "string", "description": "The belief"},
+                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                     "tags": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["user_id", "content", "confidence"]
@@ -1688,14 +1687,14 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="store_procedural",
-            description="Store a procedural memory — learned pattern or how-to knowledge. Procedural memories are very stable once established (~90 day half-life). Use for: communication rules, interaction patterns that work/don't work.",
+            description="Store procedural memory (trigger→action pattern). Very stable ~90 days.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "trigger": {"type": "string", "description": "What activates this (e.g., 'user says just do it')"},
-                    "action": {"type": "string", "description": "What to do (e.g., 'skip explanation, execute immediately')"},
-                    "content": {"type": "string", "description": "Description of the procedure"},
+                    "trigger": {"type": "string", "description": "What activates this"},
+                    "action": {"type": "string", "description": "What to do"},
+                    "content": {"type": "string"},
                     "tags": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["user_id", "trigger", "action"]
@@ -1704,15 +1703,15 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="recall_memories",
-            description="Retrieve typed memories. Retrieval is type-aware: episodic by recency, semantic by relevance, beliefs by confidence, procedural by success rate. Recalling a memory strengthens it (rehearsal).",
+            description="Retrieve typed memories. Recalling strengthens via rehearsal.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "memory_type": {"type": "string", "enum": ["episodic", "semantic", "belief", "procedural"], "description": "Filter by type (optional)"},
-                    "min_strength": {"type": "number", "description": "Minimum strength threshold 0-1 (default 0.1)", "minimum": 0, "maximum": 1},
-                    "tags": {"type": "array", "items": {"type": "string"}, "description": "Filter by tags"},
-                    "limit": {"type": "integer", "description": "Max results (default 20)"},
+                    "memory_type": {"type": "string", "enum": ["episodic", "semantic", "belief", "procedural"]},
+                    "min_strength": {"type": "number", "description": "default 0.1", "minimum": 0, "maximum": 1},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "limit": {"type": "integer", "description": "default 20"},
                 },
                 "required": ["user_id"]
             }
@@ -1720,13 +1719,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="search_memories",
-            description="Full-text search across all typed memories.",
+            description="Full-text search across typed memories.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "query": {"type": "string", "description": "Search query"},
-                    "limit": {"type": "integer", "description": "Max results (default 20)"},
+                    "query": {"type": "string"},
+                    "limit": {"type": "integer", "description": "default 20"},
                 },
                 "required": ["user_id", "query"]
             }
@@ -1734,14 +1733,14 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="update_belief",
-            description="Update a belief with new evidence. Adjusts confidence up (evidence for) or down (evidence against).",
+            description="Update belief confidence with new evidence.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "belief_id": {"type": "string", "description": "ID of the belief to update"},
-                    "evidence_type": {"type": "string", "enum": ["for", "against"], "description": "Supporting or contradicting"},
-                    "evidence_id": {"type": "string", "description": "ID of the evidence memory (optional)"},
-                    "confidence_delta": {"type": "number", "description": "How much to adjust confidence (e.g., 0.1 or -0.1)"},
+                    "belief_id": {"type": "string"},
+                    "evidence_type": {"type": "string", "enum": ["for", "against"]},
+                    "evidence_id": {"type": "string"},
+                    "confidence_delta": {"type": "number"},
                 },
                 "required": ["belief_id", "evidence_type", "confidence_delta"]
             }
@@ -1749,12 +1748,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="record_procedure_outcome",
-            description="Record whether a procedural memory worked or not. Success strengthens it, failure weakens it.",
+            description="Record if procedural memory worked. Success strengthens.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "procedure_id": {"type": "string", "description": "ID of the procedural memory"},
-                    "success": {"type": "boolean", "description": "Did it work?"},
+                    "procedure_id": {"type": "string"},
+                    "success": {"type": "boolean"},
                 },
                 "required": ["procedure_id", "success"]
             }
@@ -1762,12 +1761,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="consolidate_memories",
-            description="Run memory consolidation: repeated episodic patterns get extracted into stable semantic memories. Like sleep consolidation in the brain.",
+            description="Promote repeated episodic patterns into semantic memories.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "min_episodes": {"type": "integer", "description": "Minimum episodes needed to form a semantic memory (default 3)"},
+                    "min_episodes": {"type": "integer", "description": "default 3"},
                 },
                 "required": ["user_id"]
             }
@@ -1775,7 +1774,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="memory_stats",
-            description="Get statistics about typed memories: counts, average strength, and confidence by memory type.",
+            description="Get typed memory counts, strength, confidence by type.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1788,7 +1787,7 @@ async def list_tools() -> List[Tool]:
         # === MEMORY INTELLIGENCE ===
         Tool(
             name="detect_contradictions",
-            description="Find contradicting memories (e.g. 'user likes verbose' vs 'user prefers concise'). Scans semantic memories and beliefs with shared tags for opposing content. Returns pairs with conflict details and resolution suggestions.",
+            description="Find contradicting memories for resolution.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1800,12 +1799,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="what_do_i_know_about",
-            description="Synthesized retrieval across ALL memory types for a topic. Returns organized results: facts (semantic), beliefs, recent episodes, and procedures — everything known about a subject in one call.",
+            description="Synthesized retrieval across ALL memory types for a topic.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "topic": {"type": "string", "description": "Topic to search for (e.g. 'coding preferences', 'communication style')"},
+                    "topic": {"type": "string"},
                     "limit": {"type": "integer"},
                 },
                 "required": ["user_id", "topic"]
@@ -1814,7 +1813,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="auto_tag_memories",
-            description="Auto-classify all memories into taxonomy domains (work, technical, communication, preferences, personality, learning, personal, ai_interaction). Adds domain tags based on content analysis.",
+            description="Auto-classify memories into taxonomy domains.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1826,13 +1825,13 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="correct_memory",
-            description="Correct a memory's content. Keeps provenance trail — old content is preserved in correction history. Use when you learn something was wrong.",
+            description="Correct memory content with provenance trail.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "memory_id": {"type": "string"},
-                    "new_content": {"type": "string", "description": "Corrected content"},
-                    "reason": {"type": "string", "description": "Why the correction was needed"},
+                    "new_content": {"type": "string"},
+                    "reason": {"type": "string"},
                     "new_confidence": {"type": "number", "minimum": 0, "maximum": 1},
                 },
                 "required": ["memory_id", "new_content"]
@@ -1841,12 +1840,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="forget_memory",
-            description="Explicitly delete a memory. Use when information is no longer relevant or was stored in error. Logged for audit trail.",
+            description="Delete a memory (logged for audit).",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "memory_id": {"type": "string"},
-                    "reason": {"type": "string", "description": "Why this memory should be forgotten"},
+                    "reason": {"type": "string"},
                 },
                 "required": ["memory_id"]
             }
@@ -1854,12 +1853,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="auto_prune_memories",
-            description="Auto-prune memories that have decayed below a strength threshold. Cleans up faded episodic memories and weak beliefs. Returns count of pruned memories by type.",
+            description="Prune memories below strength threshold.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "strength_threshold": {"type": "number", "description": "Prune below this strength (default 0.05)", "minimum": 0, "maximum": 0.5},
+                    "strength_threshold": {"type": "number", "description": "default 0.05", "minimum": 0, "maximum": 0.5},
                 },
                 "required": ["user_id"]
             }
@@ -1867,12 +1866,12 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="get_relevant_context",
-            description="Pre-fetch memories relevant to the current conversation topic. Combines FTS search, recent episodes (48h), strongest facts, active beliefs, and relevant procedures. Call at conversation start for context-aware responses.",
+            description="Pre-fetch memories relevant to conversation topic.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "conversation_topic": {"type": "string", "description": "What the conversation is about"},
+                    "conversation_topic": {"type": "string"},
                     "limit": {"type": "integer"},
                 },
                 "required": ["user_id", "conversation_topic"]
@@ -1881,7 +1880,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="user_timeline",
-            description="Chronological view of all memories for a user. Most recent first. Paginated. Shows what was learned and when.",
+            description="Chronological view of all memories.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1896,13 +1895,13 @@ async def list_tools() -> List[Tool]:
         # === EMBEDDING SEARCH ===
         Tool(
             name="semantic_search",
-            description="Semantic similarity search across all typed memories using embeddings. Finds related memories even without keyword overlap (e.g. 'coding style' finds 'programming preferences'). Returns results ranked by cosine similarity.",
+            description="Embedding similarity search across typed memories.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "Natural language query"},
+                    "query": {"type": "string"},
                     "limit": {"type": "integer"},
-                    "min_similarity": {"type": "number", "description": "Minimum cosine similarity (0-1, default 0.3)", "minimum": 0, "maximum": 1},
+                    "min_similarity": {"type": "number", "description": "default 0.3", "minimum": 0, "maximum": 1},
                 },
                 "required": ["query"]
             }
@@ -1910,7 +1909,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="index_embeddings",
-            description="Batch-index all typed memories that don't yet have embeddings. Run this after importing memories or if semantic_search returns sparse results. Returns count of newly indexed memories.",
+            description="Batch-index memories missing embeddings.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1922,7 +1921,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="find_similar_memories",
-            description="Find memories semantically similar to a given memory. Useful for discovering related knowledge, finding duplicates, or building memory clusters.",
+            description="Find semantically similar memories.",
             inputSchema={
                 "type": "object",
                 "properties": {
