@@ -39,31 +39,31 @@ from loguru import logger
 
 ARXIV_TOPICS = {
     "consciousness": {
-        "query": "cat:q-bio.NC OR ti:consciousness OR ti:integrated+information",
+        "query": "ti:consciousness+AND+ti:information",
         "keywords": ["consciousness", "IIT", "integrated information", "qualia",
                      "phenomenal", "global workspace", "neural correlates"],
         "priority": 1.0,
     },
     "ai_alignment": {
-        "query": "cat:cs.AI AND (ti:alignment OR ti:safety OR ti:interpretability)",
+        "query": "ti:alignment+AND+cat:cs.AI",
         "keywords": ["alignment", "safety", "interpretability", "RLHF",
                      "constitutional AI", "reward model"],
         "priority": 0.9,
     },
     "complexity": {
-        "query": "cat:nlin.AO OR ti:self-organized+criticality OR ti:emergence",
+        "query": "ti:self-organized+criticality+OR+ti:emergence",
         "keywords": ["complexity", "emergence", "criticality", "phase transition",
                      "power law", "scale-free"],
         "priority": 0.85,
     },
     "memory_systems": {
-        "query": "cat:cs.AI AND (ti:memory OR ti:retrieval+augmented OR ti:long-term+memory)",
+        "query": "ti:memory+AND+ti:augmented+AND+cat:cs.AI",
         "keywords": ["episodic memory", "semantic memory", "memory consolidation",
                      "retrieval augmented", "knowledge graph"],
         "priority": 0.8,
     },
     "llm_advances": {
-        "query": "cat:cs.CL AND (ti:language+model OR ti:reasoning OR ti:in-context)",
+        "query": "ti:language+model+AND+ti:reasoning",
         "keywords": ["language model", "reasoning", "in-context learning",
                      "chain of thought", "tool use", "agent"],
         "priority": 0.75,
@@ -361,19 +361,51 @@ class AutonomousLearningEngine:
 
     async def _run_arxiv_ingestion(self, topic_key: str) -> Dict[str, Any]:
         """Fetch and ingest arXiv papers for a specific topic."""
+        import urllib.request
+        import xml.etree.ElementTree as ET
+
         topic = ARXIV_TOPICS.get(topic_key)
         if not topic:
             return {"ok": False, "err": f"unknown topic: {topic_key}", "fetched": 0, "stored": 0, "domains": []}
 
-        arxiv = self._get_arxiv()
-        papers = await arxiv.search_arxiv(query=topic["query"], max_results=5)
+        # Query arXiv API directly — queries are pre-formatted with + for spaces
+        # and field prefixes (cat:, ti:) that must not be double-encoded.
+        raw_query = topic["query"]
+        url = f"http://export.arxiv.org/api/query?search_query={raw_query}&sortBy=submittedDate&sortOrder=descending&max_results=5"
 
+        paper_ids = []
+        # Retry with backoff for 429 rate limits
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "PLTM/1.0"})
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    xml_data = resp.read().decode("utf-8")
+                root = ET.fromstring(xml_data)
+                ns = {"atom": "http://www.w3.org/2005/Atom"}
+                for entry in root.findall("atom:entry", ns):
+                    id_el = entry.find("atom:id", ns)
+                    if id_el is not None and id_el.text:
+                        arxiv_id = id_el.text.strip().split("/")[-1]
+                        if arxiv_id:
+                            paper_ids.append(arxiv_id)
+                break  # Success
+            except urllib.request.HTTPError as e:
+                if e.code == 429 and attempt < 2:
+                    wait = 3 * (attempt + 1)
+                    logger.info(f"arXiv rate-limited, waiting {wait}s (attempt {attempt+1})")
+                    import asyncio
+                    await asyncio.sleep(wait)
+                    continue
+                logger.warning(f"arXiv search failed for {topic_key}: {e}")
+                return {"ok": False, "err": str(e)[:200], "fetched": 0, "stored": 0, "domains": []}
+            except Exception as e:
+                logger.warning(f"arXiv search failed for {topic_key}: {e}")
+                return {"ok": False, "err": str(e)[:200], "fetched": 0, "stored": 0, "domains": []}
+
+        arxiv = self._get_arxiv()
         stored = 0
         domains = set()
-        for paper_meta in papers:
-            paper_id = paper_meta.get("id", "")
-            if not paper_id:
-                continue
+        for paper_id in paper_ids:
             try:
                 result = await arxiv.ingest_paper(paper_id, user_id="pltm_knowledge")
                 if result.get("ok"):
@@ -386,7 +418,7 @@ class AutonomousLearningEngine:
         return {
             "ok": True,
             "topic": topic_key,
-            "fetched": len(papers),
+            "fetched": len(paper_ids),
             "stored": stored,
             "domains": list(domains)[:10],
         }
@@ -529,7 +561,7 @@ class AutonomousLearningEngine:
             return {"ok": False, "err": "no store", "fetched": 0, "stored": 0, "domains": []}
 
         # Get all atoms grouped by domain
-        all_atoms = await self._store.get_all_atoms(limit=5000)
+        all_atoms = await self._store.get_all_atoms()
         domain_atoms = defaultdict(list)
         for atom in all_atoms:
             for ctx in getattr(atom, "contexts", []):
@@ -714,7 +746,7 @@ class AutonomousLearningEngine:
         if not self._store:
             return 0.0
         try:
-            all_atoms = await self._store.get_all_atoms(limit=2000)
+            all_atoms = await self._store.get_all_atoms()
             if len(all_atoms) < 3:
                 return 0.0
             phi_calc = self._get_phi_calc()

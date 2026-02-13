@@ -256,44 +256,57 @@ class ActiveLearningEngine:
         return results
 
     async def _search_arxiv(self, query: str, max_results: int) -> List[SearchResult]:
-        """Search arXiv for papers."""
+        """Search arXiv for papers with retry on rate-limit."""
+        import asyncio
         import urllib.request
         import urllib.parse
         import xml.etree.ElementTree as ET
 
-        encoded = urllib.parse.quote(query)
+        # Encode query — preserve colons for field prefixes, + for spaces
+        encoded = urllib.parse.quote(query, safe=":+")
         url = f"http://export.arxiv.org/api/query?search_query=all:{encoded}&max_results={max_results}"
 
-        try:
-            with urllib.request.urlopen(url, timeout=15) as resp:
-                xml_data = resp.read().decode("utf-8")
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "PLTM/1.0"})
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    xml_data = resp.read().decode("utf-8")
 
-            root = ET.fromstring(xml_data)
-            ns = {"atom": "http://www.w3.org/2005/Atom"}
-            results = []
+                root = ET.fromstring(xml_data)
+                ns = {"atom": "http://www.w3.org/2005/Atom"}
+                results = []
 
-            for entry in root.findall("atom:entry", ns):
-                title_el = entry.find("atom:title", ns)
-                summary_el = entry.find("atom:summary", ns)
-                id_el = entry.find("atom:id", ns)
+                for entry in root.findall("atom:entry", ns):
+                    title_el = entry.find("atom:title", ns)
+                    summary_el = entry.find("atom:summary", ns)
+                    id_el = entry.find("atom:id", ns)
 
-                title = title_el.text.strip().replace("\n", " ") if title_el is not None else ""
-                summary = summary_el.text.strip().replace("\n", " ") if summary_el is not None else ""
-                arxiv_url = id_el.text if id_el is not None else ""
+                    title = title_el.text.strip().replace("\n", " ") if title_el is not None else ""
+                    summary = summary_el.text.strip().replace("\n", " ") if summary_el is not None else ""
+                    arxiv_url = id_el.text if id_el is not None else ""
 
-                results.append(SearchResult(
-                    query=query,
-                    source="arxiv",
-                    title=title,
-                    content=summary,
-                    url=arxiv_url,
-                    relevance=0.8,
-                ))
+                    results.append(SearchResult(
+                        query=query,
+                        source="arxiv",
+                        title=title,
+                        content=summary,
+                        url=arxiv_url,
+                        relevance=0.8,
+                    ))
 
-            return results
-        except Exception as e:
-            logger.warning(f"arXiv search failed: {e}")
-            return []
+                return results
+            except urllib.request.HTTPError as e:
+                if e.code == 429 and attempt < 2:
+                    wait = 3 * (attempt + 1)
+                    logger.info(f"arXiv rate-limited, waiting {wait}s")
+                    await asyncio.sleep(wait)
+                    continue
+                logger.warning(f"arXiv search failed: {e}")
+                return []
+            except Exception as e:
+                logger.warning(f"arXiv search failed: {e}")
+                return []
+        return []
 
     async def _search_web(self, query: str, max_results: int) -> List[SearchResult]:
         """Search web via HN Algolia API (free, no key needed)."""
