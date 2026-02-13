@@ -52,7 +52,7 @@ async def handle_decay_forecast(args: Dict[str, Any]) -> List[TextContent]:
     if not R.decay_engine:
         return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
     result = await R.decay_engine.get_decay_forecast(
-        args["user_id"], hours_ahead=args.get("hours_ahead", 168))
+        args["user_id"], hours_ahead=int(args.get("hours_ahead", 168)))
     return [TextContent(type="text", text=compact_json({"forecasts": result, "count": len(result)}))]
 
 
@@ -61,8 +61,8 @@ async def handle_consolidate_memories(args: Dict[str, Any]) -> List[TextContent]
         return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
     result = await R.consolidation_engine.consolidate(
         args["user_id"],
-        min_cluster_size=args.get("min_cluster_size", 3),
-        similarity_threshold=args.get("similarity_threshold", 0.55))
+        min_cluster_size=int(args.get("min_cluster_size", 3)),
+        similarity_threshold=float(args.get("similarity_threshold", 0.55)))
     return [TextContent(type="text", text=compact_json(result))]
 
 
@@ -71,7 +71,7 @@ async def handle_contextual_retrieve(args: Dict[str, Any]) -> List[TextContent]:
         return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
     result = await R.contextual_retriever.retrieve_for_conversation(
         args["user_id"], args["messages"],
-        max_memories=args.get("max_memories", 12))
+        max_memories=int(args.get("max_memories", 12)))
     return [TextContent(type="text", text=compact_json(result))]
 
 
@@ -80,7 +80,7 @@ async def handle_rank_by_importance(args: Dict[str, Any]) -> List[TextContent]:
     if not R.typed_memory_store:
         return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
     result = await ImportanceScorer.rank_memories(
-        R.typed_memory_store, args["user_id"], limit=args.get("limit", 50))
+        R.typed_memory_store, args["user_id"], limit=int(args.get("limit", 50)))
     return [TextContent(type="text", text=compact_json({"ranked": result, "count": len(result)}))]
 
 
@@ -104,8 +104,8 @@ async def handle_memory_clusters(args: Dict[str, Any]) -> List[TextContent]:
         return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
     result = await R.memory_clusterer.build_clusters(
         args["user_id"],
-        similarity_threshold=args.get("similarity_threshold", 0.5),
-        min_cluster_size=args.get("min_cluster_size", 2))
+        similarity_threshold=float(args.get("similarity_threshold", 0.5)),
+        min_cluster_size=int(args.get("min_cluster_size", 2)))
     return [TextContent(type="text", text=compact_json({"clusters": result, "count": len(result)}))]
 
 

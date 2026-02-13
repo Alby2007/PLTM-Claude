@@ -91,6 +91,14 @@ class APIHandler(BaseHTTPRequestHandler):
                 self._json(self.get_shared_memories(params))
             elif path == "/api/provenance":
                 self._json(self.get_provenance_data(params))
+            elif path == "/api/phi-scores":
+                self._json(self.get_phi_scores(params))
+            elif path == "/api/phi-stats":
+                self._json(self.get_phi_stats())
+            elif path == "/api/tool-usage":
+                self._json(self.get_tool_usage(params))
+            elif path == "/api/snapshots":
+                self._json(self.get_snapshots(params))
             else:
                 self._serve_static(path)
         except Exception as e:
@@ -696,6 +704,68 @@ class APIHandler(BaseHTTPRequestHandler):
         conn.close()
         return {"shared": result, "count": len(result)}
 
+    def get_phi_scores(self, params):
+        conn = get_conn()
+        conn.execute("PRAGMA busy_timeout = 5000")
+        user_id = params.get("user_id", [None])[0]
+        limit = int(params.get("limit", [100])[0])
+        try:
+            if user_id:
+                rows = conn.execute("""
+                    SELECT p.memory_id, p.phi_score, p.graph_contribution, p.domain_bridging,
+                           p.semantic_uniqueness, p.consolidation_potential, p.token_cost, p.scored_at,
+                           t.content, t.memory_type, t.strength
+                    FROM phi_memory_scores p
+                    JOIN typed_memories t ON p.memory_id = t.id
+                    WHERE t.user_id = ?
+                    ORDER BY p.phi_score DESC LIMIT ?
+                """, (user_id, limit)).fetchall()
+            else:
+                rows = conn.execute("""
+                    SELECT p.memory_id, p.phi_score, p.graph_contribution, p.domain_bridging,
+                           p.semantic_uniqueness, p.consolidation_potential, p.token_cost, p.scored_at,
+                           t.content, t.memory_type, t.strength
+                    FROM phi_memory_scores p
+                    JOIN typed_memories t ON p.memory_id = t.id
+                    ORDER BY p.phi_score DESC LIMIT ?
+                """, (limit,)).fetchall()
+            result = [dict(r) for r in rows]
+        except Exception:
+            result = []
+        conn.close()
+        return {"scores": result, "count": len(result)}
+
+    def get_phi_stats(self):
+        conn = get_conn()
+        conn.execute("PRAGMA busy_timeout = 5000")
+        try:
+            row = conn.execute("""
+                SELECT COUNT(*) as n, AVG(phi_score) as avg_phi,
+                       MIN(phi_score) as min_phi, MAX(phi_score) as max_phi,
+                       SUM(token_cost) as total_tokens
+                FROM phi_memory_scores
+            """).fetchone()
+            stats = dict(row) if row else {}
+            # Distribution buckets
+            buckets = conn.execute("""
+                SELECT
+                    CASE
+                        WHEN phi_score < 0.2 THEN 'very_low'
+                        WHEN phi_score < 0.4 THEN 'low'
+                        WHEN phi_score < 0.6 THEN 'medium'
+                        WHEN phi_score < 0.8 THEN 'high'
+                        ELSE 'very_high'
+                    END as bucket,
+                    COUNT(*) as count
+                FROM phi_memory_scores
+                GROUP BY bucket
+            """).fetchall()
+            stats["distribution"] = {r["bucket"]: r["count"] for r in buckets}
+        except Exception:
+            stats = {"error": "phi_memory_scores table not found"}
+        conn.close()
+        return stats
+
     def get_provenance_data(self, params):
         conn = get_conn()
         conn.execute("PRAGMA busy_timeout = 5000")
@@ -714,6 +784,50 @@ class APIHandler(BaseHTTPRequestHandler):
             result = []
         conn.close()
         return {"provenance": result, "count": len(result)}
+
+    def get_tool_usage(self, params):
+        conn = get_conn()
+        conn.execute("PRAGMA busy_timeout = 5000")
+        days = int(params.get("days", [30])[0])
+        cutoff = time.time() - (days * 86400)
+        try:
+            rows = conn.execute("""
+                SELECT tool_name,
+                       COUNT(*) as calls,
+                       AVG(duration_ms) as avg_duration,
+                       SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) * 1.0 / COUNT(*) as success_rate,
+                       MAX(timestamp) as last_used
+                FROM tool_invocations
+                WHERE timestamp > ?
+                GROUP BY tool_name
+                ORDER BY calls DESC
+                LIMIT 100
+            """, (cutoff,)).fetchall()
+            tools = [dict(r) for r in rows]
+            total = sum(t["calls"] for t in tools)
+        except Exception:
+            tools = []
+            total = 0
+        conn.close()
+        return {"period_days": days, "total_calls": total, "tools": tools}
+
+    def get_snapshots(self, params):
+        conn = get_conn()
+        conn.execute("PRAGMA busy_timeout = 5000")
+        limit = int(params.get("limit", [20])[0])
+        try:
+            rows = conn.execute("""
+                SELECT id, label, timestamp, tool_count, atom_count,
+                       typed_memory_count, table_count, config_hash, notes
+                FROM architecture_snapshots
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """, (limit,)).fetchall()
+            snapshots = [dict(r) for r in rows]
+        except Exception:
+            snapshots = []
+        conn.close()
+        return {"count": len(snapshots), "snapshots": snapshots}
 
 
 if __name__ == "__main__":

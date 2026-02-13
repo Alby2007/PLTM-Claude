@@ -30,8 +30,10 @@ class Settings(BaseSettings):
     STANDARD_CONFIDENCE: float = 0.7
     SLOW_HOURS: int = 24
 
-    # API fallback (optional - for complex extraction only)
+    # API keys (optional - for LLM tools)
     ANTHROPIC_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
+    DEEPSEEK_API_KEY: str = ""
     ENABLE_API_FALLBACK: bool = False
 
     # Logging

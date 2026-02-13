@@ -12,10 +12,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
-def compact_json(obj) -> str:
-    """Token-efficient JSON serialization - no whitespace"""
-    return json.dumps(obj, separators=(',', ':'), default=str)
-
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -31,6 +27,7 @@ from src.personality.mood_patterns import MoodPatterns
 from src.personality.enhanced_conflict_resolver import EnhancedConflictResolver
 from src.personality.contextual_personality import ContextualPersonality
 from src.core.models import MemoryAtom, AtomType, Provenance, GraphType
+from mcp_server.handlers.registry import compact_json
 from loguru import logger
 
 
@@ -56,6 +53,16 @@ memory_portability = None
 provenance_tracker = None
 confidence_decay_engine = None
 memory_auditor = None
+phi_scorer = None
+criticality_pruner = None
+phi_consolidator = None
+phi_context_builder = None
+tool_analytics = None
+arch_snapshotter = None
+working_memory_compressor = None
+trajectory_encoder = None
+handoff_protocol = None
+_current_session_id = ""
 
 
 async def initialize_pltm(custom_db_path: str = None):
@@ -117,6 +124,32 @@ async def initialize_pltm(custom_db_path: str = None):
     confidence_decay_engine = ConfidenceDecayEngine(typed_memory_store, embedding_store)
     memory_auditor = MemoryAuditor(typed_memory_store, embedding_store, memory_jury)
     
+    # Initialize ΦRMS components
+    from src.memory.phi_rms import PhiMemoryScorer, CriticalityPruner, PhiConsolidator, PhiContextBuilder
+    from src.meta.criticality import SelfOrganizedCriticality
+    global phi_scorer, criticality_pruner, phi_consolidator, phi_context_builder
+    phi_scorer = PhiMemoryScorer(typed_memory_store, embedding_store, str(db_path))
+    await phi_scorer.connect()
+    criticality_pruner = CriticalityPruner(phi_scorer, SelfOrganizedCriticality(store), typed_memory_store)
+    phi_consolidator = PhiConsolidator(typed_memory_store, embedding_store, phi_scorer)
+    phi_context_builder = PhiContextBuilder(phi_scorer, typed_memory_store, embedding_store)
+    
+    # Initialize Improvement Loop components
+    from src.analysis.tool_analytics import ToolAnalytics
+    from src.analysis.architecture_snapshots import ArchitectureSnapshotter
+    global tool_analytics, arch_snapshotter
+    tool_analytics = ToolAnalytics(db_path)
+    arch_snapshotter = ArchitectureSnapshotter(db_path)
+    
+    # Initialize Session Continuity components
+    from src.memory.session_continuity import (
+        WorkingMemoryCompressor, TrajectoryEncoder, HandoffProtocol,
+    )
+    global working_memory_compressor, trajectory_encoder, handoff_protocol
+    working_memory_compressor = WorkingMemoryCompressor(db_path)
+    trajectory_encoder = TrajectoryEncoder(db_path)
+    handoff_protocol = HandoffProtocol(db_path, working_memory_compressor, trajectory_encoder)
+    
     # Populate shared registry for handler modules
     from mcp_server.handlers.registry import registry as _reg
     _reg.store = store
@@ -140,8 +173,17 @@ async def initialize_pltm(custom_db_path: str = None):
     _reg.provenance_tracker = provenance_tracker
     _reg.confidence_decay_engine = confidence_decay_engine
     _reg.memory_auditor = memory_auditor
+    _reg.phi_scorer = phi_scorer
+    _reg.criticality_pruner = criticality_pruner
+    _reg.phi_consolidator = phi_consolidator
+    _reg.phi_context_builder = phi_context_builder
+    _reg.tool_analytics = tool_analytics
+    _reg.arch_snapshotter = arch_snapshotter
+    _reg.working_memory_compressor = working_memory_compressor
+    _reg.trajectory_encoder = trajectory_encoder
+    _reg.handoff_protocol = handoff_protocol
     
-    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence)")
+    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence + ΦRMS + analytics)")
 
 
 # Create MCP server
@@ -1535,8 +1577,8 @@ async def list_tools() -> List[Tool]:
             inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
         ),
         Tool(
-            name="resolve_conflict",
-            description="Resolve conflicting personality traits.",
+            name="resolve_memory_conflict",
+            description="Resolve a surfaced memory conflict by choosing an action (keep_a, keep_b, keep_both, delete_both).",
             inputSchema={"type": "object", "properties": {"conflict_id": {"type": "string"}, "action": {"type": "string", "enum": ["keep_a", "keep_b", "keep_both", "delete_both"]}, "user_id": {"type": "string"}}, "required": ["conflict_id", "action", "user_id"]}
         ),
         Tool(
@@ -1578,6 +1620,60 @@ async def list_tools() -> List[Tool]:
             name="memory_audit",
             description="Full memory health audit. Returns health score 0-100.",
             inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
+        ),
+
+        # === ΦRMS (Phi Resource Management) TOOLS ===
+        Tool(
+            name="phi_score_memories",
+            description="Score all memories by Φ-density (integrated information value per token). Returns distribution stats.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="phi_prune",
+            description="Criticality-aware pruning: remove lowest-Φ memories while preserving self-organized criticality.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "target_token_savings": {"type": "integer", "description": "Target tokens to free (default 5000)"}, "max_removals": {"type": "integer", "description": "Max memories to remove (default 20)"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="phi_consolidate",
+            description="Φ-preserving episodic→semantic consolidation. Only promotes if Φ is maintained.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "min_cluster_size": {"type": "integer", "description": "default 3"}, "similarity_threshold": {"type": "number", "description": "default 0.55"}}, "required": ["user_id"]}
+        ),
+        Tool(
+            name="phi_build_context",
+            description="Knapsack context builder: select optimal memories for conversation by Φ-density × relevance within token budget.",
+            inputSchema={"type": "object", "properties": {"user_id": {"type": "string"}, "messages": {"type": "array", "items": {"type": "string"}}, "token_budget": {"type": "integer", "description": "default 2000"}}, "required": ["user_id", "messages"]}
+        ),
+
+        # === IMPROVEMENT LOOP TOOLS ===
+        Tool(
+            name="tool_usage_stats",
+            description="Get tool usage statistics: call counts, durations, success rates, and frequency distribution over last N days.",
+            inputSchema={"type": "object", "properties": {"days": {"type": "integer", "description": "Lookback period in days (default 30)"}}, "required": []}
+        ),
+        Tool(
+            name="tool_redundancy_report",
+            description="Identify unused, error-prone, and co-occurring tools. Helps evolve the tool inventory.",
+            inputSchema={"type": "object", "properties": {"days": {"type": "integer", "description": "Lookback period in days (default 30)"}}, "required": []}
+        ),
+        Tool(
+            name="tool_consolidation_proposals",
+            description="AI-actionable proposals for tool inventory evolution: deprecate unused, combine sequential, fix error-prone, optimize slow.",
+            inputSchema={"type": "object", "properties": {"days": {"type": "integer", "description": "Lookback period in days (default 30)"}}, "required": []}
+        ),
+        Tool(
+            name="snapshot_architecture",
+            description="Take a versioned snapshot of current system state (tools, counts, metrics) for A/B comparison.",
+            inputSchema={"type": "object", "properties": {"label": {"type": "string", "description": "Human-readable label e.g. 'pre-ΦRMS'"}, "notes": {"type": "string", "description": "What changed or why snapshot was taken"}}, "required": ["label"]}
+        ),
+        Tool(
+            name="list_architecture_snapshots",
+            description="List previous architecture snapshots for comparison.",
+            inputSchema={"type": "object", "properties": {"limit": {"type": "integer", "description": "default 20"}}, "required": []}
+        ),
+        Tool(
+            name="compare_architectures",
+            description="Compare two architecture snapshots: tool diff, metric deltas, count changes.",
+            inputSchema={"type": "object", "properties": {"snapshot_a": {"type": "string", "description": "ID of first snapshot"}, "snapshot_b": {"type": "string", "description": "ID of second snapshot"}}, "required": ["snapshot_a", "snapshot_b"]}
         ),
 
         # === EXPERIMENT / RESEARCH TOOLS ===
@@ -1760,8 +1856,8 @@ async def list_tools() -> List[Tool]:
         ),
         
         Tool(
-            name="consolidate_memories",
-            description="Promote repeated episodic patterns into semantic memories.",
+            name="consolidate_typed_memories",
+            description="Promote repeated episodic patterns into semantic memories (typed memory system).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1932,328 +2028,330 @@ async def list_tools() -> List[Tool]:
                 "required": ["memory_id"]
             }
         ),
+        # Session Continuity
+        Tool(
+            name="session_handoff",
+            description="Generate a complete, token-budgeted handoff block for session resumption. Replaces calling auto_init_session + get_session_bridge + phi_build_context separately. Returns identity, working memory, trajectory, goals, warnings, and Φ-context in one compact block.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user_id": {"type": "string", "default": "claude"},
+                    "token_budget": {"type": "integer", "default": 1500, "description": "Max tokens for the handoff block (500-3000)"},
+                    "include_sections": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": ["identity", "working_memory", "trajectory", "goals", "warnings", "phi_context"]},
+                        "description": "Sections to include (default: all)"
+                    },
+                },
+            }
+        ),
+        Tool(
+            name="capture_session_state",
+            description="End-of-session capture: snapshot working memory (active memories, tools, goals, state) and encode conversation trajectory (topic flow, decisions, momentum). Call before or alongside end_session.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Current session ID (from auto_init_session)"},
+                    "user_id": {"type": "string", "default": "claude"},
+                    "summary": {"type": "string", "default": "", "description": "Optional session summary"},
+                },
+                "required": ["session_id"]
+            }
+        ),
+        Tool(
+            name="get_working_memory",
+            description="Get the most recent working memory snapshot — what was actively loaded in the last session (memories accessed, tools used, open questions, state).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user_id": {"type": "string", "default": "claude"},
+                },
+            }
+        ),
     ]
 
 
+def _build_dispatch_table():
+    """Build tool name → handler function mapping. Called once at import time.
+    
+    Uses extracted handler files where available, inline handlers for the rest.
+    Dict keys are unique by definition — no more duplicate tool name bugs.
+    """
+    from functools import partial
+    from mcp_server.handlers.memory_handlers import (
+        handle_store_typed, handle_recall_memories, handle_search_memories,
+        handle_update_belief_mem, handle_record_procedure, handle_consolidate,
+        handle_memory_stats, handle_detect_contradictions, handle_what_do_i_know,
+        handle_auto_tag, handle_correct_memory, handle_forget_memory,
+        handle_auto_prune, handle_get_relevant_context, handle_user_timeline,
+        handle_semantic_search, handle_index_embeddings, handle_find_similar,
+    )
+    from mcp_server.handlers.intelligence_handlers import (
+        handle_process_conversation as _h_process_conv,
+        handle_pipeline_stats as _h_pipeline_stats,
+        handle_apply_memory_decay, handle_decay_forecast,
+        handle_consolidate_memories, handle_contextual_retrieve,
+        handle_rank_by_importance, handle_surface_conflicts,
+        handle_resolve_memory_conflict, handle_memory_clusters,
+        handle_share_memory, handle_shared_with_me,
+        handle_export_memory_profile, handle_import_memory_profile,
+        handle_memory_provenance, handle_apply_confidence_decay,
+        handle_memory_audit,
+    )
+    from mcp_server.handlers.phi_rms_handlers import (
+        handle_phi_score_memories, handle_phi_prune,
+        handle_phi_consolidate, handle_phi_build_context,
+    )
+
+    # Wrapper for store_typed variants (need extra mem_type arg)
+    async def _store_episodic(args):
+        return await handle_store_typed(args, "episodic")
+    async def _store_semantic(args):
+        return await handle_store_typed(args, "semantic")
+    async def _store_belief(args):
+        return await handle_store_typed(args, "belief")
+    async def _store_procedural(args):
+        return await handle_store_typed(args, "procedural")
+
+    return {
+        # --- Personality & Mood (inline) ---
+        "store_memory_atom": handle_store_atom,
+        "query_personality": handle_query_personality,
+        "detect_mood": handle_detect_mood,
+        "get_mood_patterns": handle_mood_patterns,
+        "resolve_conflict": handle_resolve_conflict,
+        "extract_personality_traits": handle_extract_traits,
+        "get_adaptive_prompt": handle_adaptive_prompt,
+        "get_personality_summary": handle_personality_summary,
+        "bootstrap_from_sample": handle_bootstrap_sample,
+        "bootstrap_from_messages": handle_bootstrap_messages,
+        "track_trait_evolution": handle_track_evolution,
+        "predict_reaction": handle_predict_reaction,
+        "get_meta_patterns": handle_meta_patterns,
+        "learn_from_interaction": handle_learn_interaction,
+        "predict_session": handle_predict_session,
+        "get_self_model": handle_self_model,
+        "init_claude_session": handle_init_claude_session,
+        "update_claude_style": handle_update_claude_style,
+        "learn_interaction_dynamic": handle_learn_dynamic,
+        "record_milestone": handle_record_milestone,
+        "add_shared_vocabulary": handle_add_vocabulary,
+        "get_claude_personality": handle_get_claude_personality,
+        "evolve_claude_personality": handle_evolve_claude,
+        "check_pltm_available": handle_check_pltm,
+        "pltm_mode": handle_pltm_mode,
+        "deep_personality_analysis": handle_deep_analysis,
+        "enrich_claude_personality": handle_enrich_personality,
+        # --- Learning (inline) ---
+        "learn_from_url": handle_learn_url,
+        "learn_from_paper": handle_learn_paper,
+        "learn_from_code": handle_learn_code,
+        "get_learning_stats": handle_learning_stats,
+        "batch_ingest_wikipedia": handle_batch_wikipedia,
+        "batch_ingest_papers": handle_batch_papers,
+        "batch_ingest_repos": handle_batch_repos,
+        "get_learning_schedule": handle_learning_schedule,
+        "run_learning_task": handle_run_task,
+        "cross_domain_synthesis": handle_synthesis,
+        "get_universal_principles": handle_universal_principles,
+        "get_transfer_suggestions": handle_transfer_suggestions,
+        "learn_from_conversation": handle_learn_conversation,
+        # --- PLTM 2.0 (inline) ---
+        "quantum_add_state": handle_quantum_add,
+        "quantum_query": handle_quantum_query,
+        "quantum_peek": handle_quantum_peek,
+        "attention_retrieve": handle_attention_retrieve,
+        "attention_multihead": handle_attention_multihead,
+        "knowledge_add_concept": handle_knowledge_add,
+        "knowledge_find_path": handle_knowledge_path,
+        "knowledge_bridges": handle_knowledge_bridges,
+        "knowledge_stats": handle_knowledge_stats,
+        "self_improve_cycle": handle_improve_cycle,
+        "self_improve_meta_learn": handle_meta_learn,
+        "self_improve_history": handle_improve_history,
+        "quantum_cleanup": handle_quantum_cleanup,
+        "quantum_stats": handle_quantum_stats,
+        "attention_clear_cache": handle_attention_clear_cache,
+        "criticality_state": handle_criticality_state,
+        "criticality_recommend": handle_criticality_recommend,
+        "criticality_adjust": handle_criticality_adjust,
+        "criticality_history": handle_criticality_history,
+        "add_provenance": handle_add_provenance,
+        "get_provenance": handle_get_provenance,
+        "provenance_stats": handle_provenance_stats,
+        "unverified_claims": handle_unverified_claims,
+        "mmr_retrieve": handle_mmr_retrieve,
+        # --- Action Accounting (inline) ---
+        "record_action": handle_record_action,
+        "get_aae": handle_get_aae,
+        "aae_trend": handle_aae_trend,
+        "start_action_cycle": handle_start_action_cycle,
+        "end_action_cycle": handle_end_action_cycle,
+        # --- Entropy Injection (inline) ---
+        "inject_entropy_random": handle_inject_entropy_random,
+        "inject_entropy_antipodal": handle_inject_entropy_antipodal,
+        "inject_entropy_temporal": handle_inject_entropy_temporal,
+        "entropy_stats": handle_entropy_stats,
+        # --- ArXiv (inline) ---
+        "ingest_arxiv": handle_ingest_arxiv,
+        "search_arxiv": handle_search_arxiv,
+        "arxiv_history": handle_arxiv_history,
+        # --- Epistemic Hygiene (inline) ---
+        "check_before_claiming": handle_check_before_claiming,
+        "log_claim": handle_log_claim,
+        "resolve_claim": handle_resolve_claim,
+        "get_calibration": handle_get_calibration,
+        "calibrate_confidence_live": handle_calibrate_confidence_live,
+        # --- Self-Modeling (inline) ---
+        "self_profile": handle_self_profile,
+        "get_longitudinal_stats": handle_get_longitudinal_stats,
+        "bootstrap_self_model": handle_bootstrap_self_model,
+        "track_curiosity_spike": handle_track_curiosity_spike,
+        "learn_communication_style": handle_learn_communication_style,
+        # --- Cross-Model (inline) ---
+        "route_llm_task": handle_route_llm_task,
+        # --- Session (inline) ---
+        "auto_init_session": handle_auto_init_session,
+        "end_session": handle_end_session,
+        "generate_memory_prompt": handle_generate_memory_prompt,
+        "belief_auto_check": handle_belief_auto_check,
+        "jury_stats": handle_jury_stats,
+        "jury_feedback": handle_jury_feedback,
+        "process_message": handle_process_message,
+        "process_message_batch": handle_process_message_batch,
+        "pipeline_stats": _h_pipeline_stats,
+        # --- Memory Intelligence (extracted → intelligence_handlers.py) ---
+        "apply_memory_decay": handle_apply_memory_decay,
+        "decay_forecast": handle_decay_forecast,
+        "consolidate_memories": handle_consolidate_memories,
+        "contextual_retrieve": handle_contextual_retrieve,
+        "rank_by_importance": handle_rank_by_importance,
+        "surface_conflicts": handle_surface_conflicts,
+        "resolve_memory_conflict": handle_resolve_memory_conflict,
+        "memory_clusters": handle_memory_clusters,
+        "share_memory": handle_share_memory,
+        "shared_with_me": handle_shared_with_me,
+        "export_memory_profile": handle_export_memory_profile,
+        "import_memory_profile": handle_import_memory_profile,
+        "memory_provenance": handle_memory_provenance,
+        "apply_confidence_decay": handle_apply_confidence_decay,
+        "memory_audit": handle_memory_audit,
+        # --- ΦRMS (extracted → phi_rms_handlers.py) ---
+        "phi_score_memories": handle_phi_score_memories,
+        "phi_prune": handle_phi_prune,
+        "phi_consolidate": handle_phi_consolidate,
+        "phi_build_context": handle_phi_build_context,
+        # --- Improvement Loops (inline) ---
+        "tool_usage_stats": handle_tool_usage_stats,
+        "tool_redundancy_report": handle_tool_redundancy_report,
+        "tool_consolidation_proposals": handle_tool_consolidation_proposals,
+        "snapshot_architecture": handle_snapshot_architecture,
+        "list_architecture_snapshots": handle_list_architecture_snapshots,
+        "compare_architectures": handle_compare_architectures,
+        # --- Experiments (inline) ---
+        "trace_claim_reasoning": handle_trace_claim_reasoning,
+        "constraint_sensitivity_test": handle_constraint_sensitivity_test,
+        "domain_cognitive_map": handle_domain_cognitive_map,
+        # --- Data Access (inline) ---
+        "query_pltm_sql": handle_query_pltm_sql,
+        # --- Typed Memory System (extracted → memory_handlers.py) ---
+        "store_episodic": _store_episodic,
+        "store_semantic": _store_semantic,
+        "store_belief": _store_belief,
+        "store_procedural": _store_procedural,
+        "recall_memories": handle_recall_memories,
+        "search_memories": handle_search_memories,
+        "update_belief": handle_update_belief_mem,
+        "record_procedure_outcome": handle_record_procedure,
+        "consolidate_typed_memories": handle_consolidate,
+        "memory_stats": handle_memory_stats,
+        "detect_contradictions": handle_detect_contradictions,
+        "what_do_i_know_about": handle_what_do_i_know,
+        "auto_tag_memories": handle_auto_tag,
+        "correct_memory": handle_correct_memory,
+        "forget_memory": handle_forget_memory,
+        "auto_prune_memories": handle_auto_prune,
+        "get_relevant_context": handle_get_relevant_context,
+        "user_timeline": handle_user_timeline,
+        # --- Embedding Search (extracted → memory_handlers.py) ---
+        "semantic_search": handle_semantic_search,
+        "index_embeddings": handle_index_embeddings,
+        "find_similar_memories": handle_find_similar,
+        # --- Session Continuity (inline) ---
+        "session_handoff": handle_session_handoff,
+        "capture_session_state": handle_capture_session_state,
+        "get_working_memory": handle_get_working_memory,
+    }
+
+
+# Dispatch table — built lazily on first call to avoid import-time issues
+_TOOL_DISPATCH = None
+
+
 async def _dispatch_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-    """Inner dispatch for tool calls (wrapped by call_tool with timeout)."""
-    if name == "store_memory_atom":
-        return await handle_store_atom(arguments)
-    elif name == "query_personality":
-        return await handle_query_personality(arguments)
-    elif name == "detect_mood":
-        return await handle_detect_mood(arguments)
-    elif name == "get_mood_patterns":
-        return await handle_mood_patterns(arguments)
-    elif name == "resolve_conflict":
-        return await handle_resolve_conflict(arguments)
-    elif name == "extract_personality_traits":
-        return await handle_extract_traits(arguments)
-    elif name == "get_adaptive_prompt":
-        return await handle_adaptive_prompt(arguments)
-    elif name == "get_personality_summary":
-        return await handle_personality_summary(arguments)
-    elif name == "bootstrap_from_sample":
-        return await handle_bootstrap_sample(arguments)
-    elif name == "bootstrap_from_messages":
-        return await handle_bootstrap_messages(arguments)
-    elif name == "track_trait_evolution":
-        return await handle_track_evolution(arguments)
-    elif name == "predict_reaction":
-        return await handle_predict_reaction(arguments)
-    elif name == "get_meta_patterns":
-        return await handle_meta_patterns(arguments)
-    elif name == "learn_from_interaction":
-        return await handle_learn_interaction(arguments)
-    elif name == "predict_session":
-        return await handle_predict_session(arguments)
-    elif name == "get_self_model":
-        return await handle_self_model(arguments)
-    elif name == "init_claude_session":
-        return await handle_init_claude_session(arguments)
-    elif name == "update_claude_style":
-        return await handle_update_claude_style(arguments)
-    elif name == "learn_interaction_dynamic":
-        return await handle_learn_dynamic(arguments)
-    elif name == "record_milestone":
-        return await handle_record_milestone(arguments)
-    elif name == "add_shared_vocabulary":
-        return await handle_add_vocabulary(arguments)
-    elif name == "get_claude_personality":
-        return await handle_get_claude_personality(arguments)
-    elif name == "evolve_claude_personality":
-        return await handle_evolve_claude(arguments)
-    elif name == "check_pltm_available":
-        return await handle_check_pltm(arguments)
-    elif name == "pltm_mode":
-        return await handle_pltm_mode(arguments)
-    elif name == "deep_personality_analysis":
-        return await handle_deep_analysis(arguments)
-    elif name == "enrich_claude_personality":
-        return await handle_enrich_personality(arguments)
-    elif name == "learn_from_url":
-        return await handle_learn_url(arguments)
-    elif name == "learn_from_paper":
-        return await handle_learn_paper(arguments)
-    elif name == "learn_from_code":
-        return await handle_learn_code(arguments)
-    elif name == "get_learning_stats":
-        return await handle_learning_stats(arguments)
-    elif name == "batch_ingest_wikipedia":
-        return await handle_batch_wikipedia(arguments)
-    elif name == "batch_ingest_papers":
-        return await handle_batch_papers(arguments)
-    elif name == "batch_ingest_repos":
-        return await handle_batch_repos(arguments)
-    elif name == "get_learning_schedule":
-        return await handle_learning_schedule(arguments)
-    elif name == "run_learning_task":
-        return await handle_run_task(arguments)
-    elif name == "cross_domain_synthesis":
-        return await handle_synthesis(arguments)
-    elif name == "get_universal_principles":
-        return await handle_universal_principles(arguments)
-    elif name == "get_transfer_suggestions":
-        return await handle_transfer_suggestions(arguments)
-    elif name == "learn_from_conversation":
-        return await handle_learn_conversation(arguments)
-    # PLTM 2.0 tools
-    elif name == "quantum_add_state":
-        return await handle_quantum_add(arguments)
-    elif name == "quantum_query":
-        return await handle_quantum_query(arguments)
-    elif name == "quantum_peek":
-        return await handle_quantum_peek(arguments)
-    elif name == "attention_retrieve":
-        return await handle_attention_retrieve(arguments)
-    elif name == "attention_multihead":
-        return await handle_attention_multihead(arguments)
-    elif name == "knowledge_add_concept":
-        return await handle_knowledge_add(arguments)
-    elif name == "knowledge_find_path":
-        return await handle_knowledge_path(arguments)
-    elif name == "knowledge_bridges":
-        return await handle_knowledge_bridges(arguments)
-    elif name == "knowledge_stats":
-        return await handle_knowledge_stats(arguments)
-    elif name == "self_improve_cycle":
-        return await handle_improve_cycle(arguments)
-    elif name == "self_improve_meta_learn":
-        return await handle_meta_learn(arguments)
-    elif name == "self_improve_history":
-        return await handle_improve_history(arguments)
-    elif name == "quantum_cleanup":
-        return await handle_quantum_cleanup(arguments)
-    elif name == "quantum_stats":
-        return await handle_quantum_stats(arguments)
-    elif name == "attention_clear_cache":
-        return await handle_attention_clear_cache(arguments)
-    elif name == "criticality_state":
-        return await handle_criticality_state(arguments)
-    elif name == "criticality_recommend":
-        return await handle_criticality_recommend(arguments)
-    elif name == "criticality_adjust":
-        return await handle_criticality_adjust(arguments)
-    elif name == "criticality_history":
-        return await handle_criticality_history(arguments)
-    elif name == "add_provenance":
-        return await handle_add_provenance(arguments)
-    elif name == "get_provenance":
-        return await handle_get_provenance(arguments)
-    elif name == "provenance_stats":
-        return await handle_provenance_stats(arguments)
-    elif name == "unverified_claims":
-        return await handle_unverified_claims(arguments)
-    elif name == "mmr_retrieve":
-        return await handle_mmr_retrieve(arguments)
-    # Action Accounting
-    elif name == "record_action":
-        return await handle_record_action(arguments)
-    elif name == "get_aae":
-        return await handle_get_aae(arguments)
-    elif name == "aae_trend":
-        return await handle_aae_trend(arguments)
-    elif name == "start_action_cycle":
-        return await handle_start_action_cycle(arguments)
-    elif name == "end_action_cycle":
-        return await handle_end_action_cycle(arguments)
-    # Entropy Injection
-    elif name == "inject_entropy_random":
-        return await handle_inject_entropy_random(arguments)
-    elif name == "inject_entropy_antipodal":
-        return await handle_inject_entropy_antipodal(arguments)
-    elif name == "inject_entropy_temporal":
-        return await handle_inject_entropy_temporal(arguments)
-    elif name == "entropy_stats":
-        return await handle_entropy_stats(arguments)
-    # ArXiv Ingestion
-    elif name == "ingest_arxiv":
-        return await handle_ingest_arxiv(arguments)
-    elif name == "search_arxiv":
-        return await handle_search_arxiv(arguments)
-    elif name == "arxiv_history":
-        return await handle_arxiv_history(arguments)
-    # Epistemic Hygiene
-    elif name == "check_before_claiming":
-        return await handle_check_before_claiming(arguments)
-    elif name == "log_claim":
-        return await handle_log_claim(arguments)
-    elif name == "resolve_claim":
-        return await handle_resolve_claim(arguments)
-    elif name == "get_calibration":
-        return await handle_get_calibration(arguments)
-    elif name == "calibrate_confidence_live":
-        return await handle_calibrate_confidence_live(arguments)
-    # Personality / Self-Modeling
-    elif name == "self_profile":
-        return await handle_self_profile(arguments)
-    elif name == "get_longitudinal_stats":
-        return await handle_get_longitudinal_stats(arguments)
-    elif name == "bootstrap_self_model":
-        return await handle_bootstrap_self_model(arguments)
-    elif name == "track_curiosity_spike":
-        return await handle_track_curiosity_spike(arguments)
-    elif name == "learn_communication_style":
-        return await handle_learn_communication_style(arguments)
-    # Cross-Model
-    elif name == "route_llm_task":
-        return await handle_route_llm_task(arguments)
-    # Session
-    elif name == "auto_init_session":
-        return await handle_auto_init_session(arguments)
-    elif name == "end_session":
-        return await handle_end_session(arguments)
-    elif name == "generate_memory_prompt":
-        return await handle_generate_memory_prompt(arguments)
-    elif name == "belief_auto_check":
-        return await handle_belief_auto_check(arguments)
-    elif name == "jury_stats":
-        return await handle_jury_stats(arguments)
-    elif name == "jury_feedback":
-        return await handle_jury_feedback(arguments)
-    elif name == "process_message":
-        return await handle_process_message(arguments)
-    elif name == "process_message_batch":
-        return await handle_process_message_batch(arguments)
-    elif name == "pipeline_stats":
-        return await handle_pipeline_stats(arguments)
-    # Memory Intelligence
-    elif name == "apply_memory_decay":
-        return await handle_apply_memory_decay(arguments)
-    elif name == "decay_forecast":
-        return await handle_decay_forecast(arguments)
-    elif name == "consolidate_memories":
-        return await handle_consolidate_memories(arguments)
-    elif name == "contextual_retrieve":
-        return await handle_contextual_retrieve(arguments)
-    elif name == "rank_by_importance":
-        return await handle_rank_by_importance(arguments)
-    elif name == "surface_conflicts":
-        return await handle_surface_conflicts(arguments)
-    elif name == "resolve_conflict":
-        return await handle_resolve_conflict(arguments)
-    elif name == "memory_clusters":
-        return await handle_memory_clusters(arguments)
-    elif name == "share_memory":
-        return await handle_share_memory(arguments)
-    elif name == "shared_with_me":
-        return await handle_shared_with_me(arguments)
-    elif name == "export_memory_profile":
-        return await handle_export_memory_profile(arguments)
-    elif name == "import_memory_profile":
-        return await handle_import_memory_profile(arguments)
-    elif name == "memory_provenance":
-        return await handle_memory_provenance(arguments)
-    elif name == "apply_confidence_decay":
-        return await handle_apply_confidence_decay(arguments)
-    elif name == "memory_audit":
-        return await handle_memory_audit(arguments)
-    # Experiments
-    elif name == "trace_claim_reasoning":
-        return await handle_trace_claim_reasoning(arguments)
-    elif name == "constraint_sensitivity_test":
-        return await handle_constraint_sensitivity_test(arguments)
-    elif name == "domain_cognitive_map":
-        return await handle_domain_cognitive_map(arguments)
-    # Data Access
-    elif name == "query_pltm_sql":
-        return await handle_query_pltm_sql(arguments)
-    # Typed Memory System
-    elif name == "store_episodic":
-        return await handle_store_typed(arguments, "episodic")
-    elif name == "store_semantic":
-        return await handle_store_typed(arguments, "semantic")
-    elif name == "store_belief":
-        return await handle_store_typed(arguments, "belief")
-    elif name == "store_procedural":
-        return await handle_store_typed(arguments, "procedural")
-    elif name == "recall_memories":
-        return await handle_recall_memories(arguments)
-    elif name == "search_memories":
-        return await handle_search_memories(arguments)
-    elif name == "update_belief":
-        return await handle_update_belief_mem(arguments)
-    elif name == "record_procedure_outcome":
-        return await handle_record_procedure(arguments)
-    elif name == "consolidate_memories":
-        return await handle_consolidate(arguments)
-    elif name == "memory_stats":
-        return await handle_memory_stats(arguments)
-    # Memory Intelligence
-    elif name == "detect_contradictions":
-        return await handle_detect_contradictions(arguments)
-    elif name == "what_do_i_know_about":
-        return await handle_what_do_i_know(arguments)
-    elif name == "auto_tag_memories":
-        return await handle_auto_tag(arguments)
-    elif name == "correct_memory":
-        return await handle_correct_memory(arguments)
-    elif name == "forget_memory":
-        return await handle_forget_memory(arguments)
-    elif name == "auto_prune_memories":
-        return await handle_auto_prune(arguments)
-    elif name == "get_relevant_context":
-        return await handle_get_relevant_context(arguments)
-    elif name == "user_timeline":
-        return await handle_user_timeline(arguments)
-    # Embedding Search
-    elif name == "semantic_search":
-        return await handle_semantic_search(arguments)
-    elif name == "index_embeddings":
-        return await handle_index_embeddings(arguments)
-    elif name == "find_similar_memories":
-        return await handle_find_similar(arguments)
-    else:
-        return [TextContent(
-            type="text",
-            text=f"Unknown tool: {name}"
-        )]
+    """Dispatch tool calls via dictionary lookup. O(1) instead of O(n) elif chain."""
+    global _TOOL_DISPATCH
+    if _TOOL_DISPATCH is None:
+        _TOOL_DISPATCH = _build_dispatch_table()
+
+    handler = _TOOL_DISPATCH.get(name)
+    if handler is None:
+        return [TextContent(type="text", text=f"Unknown tool: {name}")]
+    return await handler(arguments)
 
 
 @app.call_tool()
 async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-    """Handle tool calls with timeout and store guard."""
+    """Handle tool calls with timeout, store guard, and analytics logging."""
     if store is None:
         return [TextContent(
             type="text",
             text=f"Error: PLTM not initialized. Restart the MCP server."
         )]
     
+    import time as _time
+    _t0 = _time.time()
+    _success = True
+    _error_type = None
+    result = None
+    
     try:
         result = await asyncio.wait_for(_dispatch_tool(name, arguments), timeout=30.0)
         return result
     except asyncio.TimeoutError:
+        _success = False
+        _error_type = "timeout"
         logger.error(f"Tool {name} timed out after 30s")
         return [TextContent(
             type="text",
             text=f"Error: Tool '{name}' timed out after 30s"
         )]
     except Exception as e:
+        _success = False
+        _error_type = type(e).__name__
         logger.error(f"Error in tool {name}: {e}")
         return [TextContent(
             type="text",
             text=f"Error: {str(e)}"
         )]
+    finally:
+        if tool_analytics:
+            _duration = (_time.time() - _t0) * 1000
+            _result_size = 0
+            if result:
+                try:
+                    _result_size = sum(len(r.text) for r in result if hasattr(r, 'text'))
+                except Exception:
+                    pass
+            tool_analytics.log_invocation(
+                tool_name=name,
+                session_id=_current_session_id,
+                duration_ms=_duration,
+                success=_success,
+                error_type=_error_type,
+                args_hash=tool_analytics.hash_args(arguments) if arguments else "",
+                result_size=_result_size,
+            )
 
 
 async def handle_store_atom(args: Dict[str, Any]) -> List[TextContent]:
@@ -2362,7 +2460,7 @@ async def handle_detect_mood(args: Dict[str, Any]) -> List[TextContent]:
 async def handle_mood_patterns(args: Dict[str, Any]) -> List[TextContent]:
     """Get mood patterns"""
     user_id = args["user_id"]
-    window_days = args.get("window_days", 90)
+    window_days = int(args.get("window_days", 90))
     
     patterns = await mood_patterns.detect_patterns(user_id, window_days)
     
@@ -2598,7 +2696,7 @@ async def handle_track_evolution(args: Dict[str, Any]) -> List[TextContent]:
     result = await tracker.track_trait_evolution(
         args["user_id"],
         args["trait"],
-        args.get("window_days", 90)
+        int(args.get("window_days", 90))
     )
     
     return [TextContent(type="text", text=compact_json(result))]
@@ -2692,7 +2790,7 @@ async def handle_update_claude_style(args: Dict[str, Any]) -> List[TextContent]:
         args["user_id"],
         args["attribute"],
         args["value"],
-        args.get("confidence", 0.8)
+        float(args.get("confidence", 0.8))
     )
     
     return [TextContent(type="text", text=compact_json(result))]
@@ -2707,7 +2805,7 @@ async def handle_learn_dynamic(args: Dict[str, Any]) -> List[TextContent]:
         args["user_id"],
         args["behavior"],
         args["works"],
-        args.get("confidence", 0.8)
+        float(args.get("confidence", 0.8))
     )
     
     return [TextContent(type="text", text=compact_json(result))]
@@ -2721,7 +2819,7 @@ async def handle_record_milestone(args: Dict[str, Any]) -> List[TextContent]:
     result = await claude.record_milestone(
         args["user_id"],
         args["description"],
-        args.get("significance", 0.8)
+        float(args.get("significance", 0.8))
     )
     
     return [TextContent(type="text", text=compact_json(result))]
@@ -3149,7 +3247,7 @@ async def handle_attention_retrieve(args: Dict[str, Any]) -> List[TextContent]:
     """Attention-weighted memory retrieval - lightweight direct SQL"""
     user_id = args.get("user_id", "alby")
     query = args.get("query", "")
-    top_k = args.get("top_k", 10)
+    top_k = int(args.get("top_k", 10))
     
     if not store._conn:
         return [TextContent(type="text", text=compact_json({"error": "DB not connected", "n": 0}))]
@@ -3186,7 +3284,7 @@ async def handle_attention_multihead(args: Dict[str, Any]) -> List[TextContent]:
     """Multi-head attention retrieval - lightweight direct SQL"""
     user_id = args.get("user_id", "alby")
     query = args.get("query", "")
-    num_heads = args.get("num_heads", 4)
+    num_heads = int(args.get("num_heads", 4))
     
     if not store._conn:
         return [TextContent(type="text", text=compact_json({"error": "DB not connected", "n": 0}))]
@@ -3277,7 +3375,7 @@ async def handle_knowledge_bridges(args: Dict[str, Any]) -> List[TextContent]:
     if _knowledge_graph is None:
         _knowledge_graph = KnowledgeNetworkGraph(store)
     
-    result = await _knowledge_graph.find_bridges(args.get("top_k", 10))
+    result = await _knowledge_graph.find_bridges(int(args.get("top_k", 10)))
     return [TextContent(type="text", text=compact_json(result))]
 
 
@@ -3477,7 +3575,7 @@ async def handle_add_provenance(args: Dict[str, Any]) -> List[TextContent]:
     source_type = args.get("source_type")
     source_url = args.get("source_url")
     quoted_span = args.get("quoted_span")
-    confidence = args.get("confidence", 0.5)
+    confidence = float(args.get("confidence", 0.5))
     
     # Generate provenance ID and content hash
     prov_id = f"prov_{source_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -3545,8 +3643,8 @@ async def handle_mmr_retrieve(args: Dict[str, Any]) -> List[TextContent]:
     
     user_id = args.get("user_id", "alby")
     query = args.get("query", "")
-    top_k = args.get("top_k", 5)
-    lambda_param = args.get("lambda_param", 0.6)
+    top_k = int(args.get("top_k", 5))
+    lambda_param = float(args.get("lambda_param", 0.6))
     
     start = time.time()
     
@@ -3667,7 +3765,7 @@ async def handle_get_aae(args: Dict[str, Any]) -> List[TextContent]:
 async def handle_aae_trend(args: Dict[str, Any]) -> List[TextContent]:
     """Get AAE trend"""
     aa = get_action_accounting()
-    trend = aa.get_trend(window_size=args.get("window_size", 10))
+    trend = aa.get_trend(window_size=int(args.get("window_size", 10)))
     return [TextContent(type="text", text=compact_json(trend))]
 
 
@@ -3701,7 +3799,7 @@ def get_entropy_injector():
 async def handle_inject_entropy_random(args: Dict[str, Any]) -> List[TextContent]:
     """Inject entropy via random domain sampling - lightweight direct SQL"""
     user_id = args.get("user_id", "alby")
-    n_domains = args.get("n_domains", 3)
+    n_domains = int(args.get("n_domains", 3))
     
     if not store._conn:
         return [TextContent(type="text", text=compact_json({"error": "DB not connected", "n": 0}))]
@@ -3731,7 +3829,7 @@ async def handle_inject_entropy_antipodal(args: Dict[str, Any]) -> List[TextCont
     """Inject entropy via antipodal activation - lightweight direct SQL"""
     user_id = args.get("user_id", "alby")
     context = args.get("current_context", "")
-    n_memories = args.get("n_memories", 5)
+    n_memories = int(args.get("n_memories", 5))
     
     if not store._conn:
         return [TextContent(type="text", text=compact_json({"error": "DB not connected", "n": 0}))]
@@ -3773,8 +3871,8 @@ async def handle_inject_entropy_antipodal(args: Dict[str, Any]) -> List[TextCont
 async def handle_inject_entropy_temporal(args: Dict[str, Any]) -> List[TextContent]:
     """Inject entropy via temporal diversity - lightweight direct SQL"""
     user_id = args.get("user_id", "alby")
-    n_old = args.get("n_old", 3)
-    n_recent = args.get("n_recent", 2)
+    n_old = int(args.get("n_old", 3))
+    n_recent = int(args.get("n_recent", 2))
     
     if not store._conn:
         return [TextContent(type="text", text=compact_json({"error": "DB not connected", "n": 0}))]
@@ -3869,7 +3967,7 @@ async def handle_search_arxiv(args: Dict[str, Any]) -> List[TextContent]:
     ai = get_arxiv_ingestion()
     results = await ai.search_arxiv(
         query=args.get("query"),
-        max_results=args.get("max_results", 5)
+        max_results=int(args.get("max_results", 5))
     )
     return [TextContent(type="text", text=compact_json({"n": len(results), "papers": results}))]
 
@@ -3877,7 +3975,7 @@ async def handle_search_arxiv(args: Dict[str, Any]) -> List[TextContent]:
 async def handle_arxiv_history(args: Dict[str, Any]) -> List[TextContent]:
     """Get arXiv ingestion history"""
     ai = get_arxiv_ingestion()
-    history = ai.get_ingestion_history(args.get("last_n", 10))
+    history = ai.get_ingestion_history(int(args.get("last_n", 10)))
     return [TextContent(type="text", text=compact_json({"n": len(history), "history": history}))]
 
 
@@ -4063,7 +4161,7 @@ async def handle_get_longitudinal_stats(args: Dict[str, Any]) -> List[TextConten
     ev2 = get_epistemic_v2()
     result = ev2.get_longitudinal_stats(
         user_id=args.get("user_id", "claude"),
-        days=args.get("days", 30),
+        days=int(args.get("days", 30)),
     )
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -4106,7 +4204,7 @@ async def handle_track_curiosity_spike(args: Dict[str, Any]) -> List[TextContent
     result = ps.track_curiosity_spike(
         topic=args["topic"],
         indicators=args["indicators"],
-        engagement_score=args.get("engagement_score", 0.5),
+        engagement_score=float(args.get("engagement_score", 0.5)),
         context=args.get("context", ""),
     )
     return [TextContent(type="text", text=compact_json(result))]
@@ -4151,17 +4249,27 @@ async def handle_route_llm_task(args: Dict[str, Any]) -> List[TextContent]:
 # === SESSION HANDLERS ===
 
 async def handle_auto_init_session(args: Dict[str, Any]) -> List[TextContent]:
+    import uuid
+    global _current_session_id
+    _current_session_id = uuid.uuid4().hex[:12]
     ev2 = get_epistemic_v2()
     result = ev2.auto_init_session(user_id=args.get("user_id", "claude"))
+    result["session_id"] = _current_session_id
     return [TextContent(type="text", text=compact_json(result))]
 
 
 async def handle_end_session(args: Dict[str, Any]) -> List[TextContent]:
+    global _current_session_id
+    # Flush tool analytics session sequence before ending
+    if tool_analytics and _current_session_id:
+        tool_analytics.end_session(_current_session_id)
     ev2 = get_epistemic_v2()
     result = ev2.end_session(
         summary=args.get("summary", ""),
         user_id=args.get("user_id", "claude"),
     )
+    result["tool_session_id"] = _current_session_id
+    _current_session_id = ""
     
     # Auto-extract learnings into typed memories
     learnings = args.get("learnings", [])
@@ -4215,6 +4323,25 @@ async def handle_end_session(args: Dict[str, Any]) -> List[TextContent]:
     result["memories_consolidated"] = consolidated
     result["total_learnings"] = len(stored_memories)
     
+    # Auto-capture session state (working memory + trajectory) before ending
+    continuity_result = None
+    if handoff_protocol and _current_session_id:
+        try:
+            continuity_result = await handoff_protocol.end_and_capture(
+                session_id=_current_session_id,
+                user_id=args.get("user_id", "claude"),
+                summary=args.get("summary", ""),
+            )
+        except Exception as e:
+            logger.debug(f"Session continuity capture failed: {e}")
+    if continuity_result:
+        result["session_continuity"] = {
+            "working_memory_snapshot": continuity_result["working_memory"]["snapshot_id"],
+            "trajectory_snapshot": continuity_result["trajectory"]["snapshot_id"],
+            "topic_flow": continuity_result["trajectory"]["topic_flow"][-5:],
+            "momentum": continuity_result["trajectory"]["momentum"],
+        }
+    
     return [TextContent(type="text", text=compact_json(result))]
 
 
@@ -4222,7 +4349,7 @@ async def handle_generate_memory_prompt(args: Dict[str, Any]) -> List[TextConten
     """Generate a memory-aware context block for system prompt injection."""
     user_id = args["user_id"]
     topic = args.get("conversation_topic", "")
-    max_tokens = args.get("max_tokens", 500)
+    max_tokens = int(args.get("max_tokens", 500))
     # Rough estimate: 1 token ≈ 4 chars
     max_chars = max_tokens * 4
     
@@ -4425,133 +4552,88 @@ async def handle_pipeline_stats(args: Dict[str, Any]) -> List[TextContent]:
     return [TextContent(type="text", text=compact_json(typed_memory_pipeline.get_stats()))]
 
 
-# === MEMORY INTELLIGENCE HANDLERS ===
+# === SESSION CONTINUITY HANDLERS ===
 
-async def handle_apply_memory_decay(args: Dict[str, Any]) -> List[TextContent]:
-    if not decay_engine:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await decay_engine.apply_decay(args["user_id"])
+async def handle_session_handoff(args: Dict[str, Any]) -> List[TextContent]:
+    if not handoff_protocol:
+        return [TextContent(type="text", text=compact_json({"error": "Session continuity not initialized"}))]
+    result = await handoff_protocol.generate_handoff(
+        user_id=args.get("user_id", "claude"),
+        token_budget=int(args.get("token_budget", 1500)),
+        include_sections=args.get("include_sections"),
+    )
     return [TextContent(type="text", text=compact_json(result))]
 
 
-async def handle_decay_forecast(args: Dict[str, Any]) -> List[TextContent]:
-    if not decay_engine:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await decay_engine.get_decay_forecast(
-        args["user_id"], hours_ahead=args.get("hours_ahead", 168))
-    return [TextContent(type="text", text=compact_json({"forecasts": result, "count": len(result)}))]
-
-
-async def handle_consolidate_memories(args: Dict[str, Any]) -> List[TextContent]:
-    if not consolidation_engine:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await consolidation_engine.consolidate(
-        args["user_id"],
-        min_cluster_size=args.get("min_cluster_size", 3),
-        similarity_threshold=args.get("similarity_threshold", 0.55))
+async def handle_capture_session_state(args: Dict[str, Any]) -> List[TextContent]:
+    if not handoff_protocol:
+        return [TextContent(type="text", text=compact_json({"error": "Session continuity not initialized"}))]
+    result = await handoff_protocol.end_and_capture(
+        session_id=args["session_id"],
+        user_id=args.get("user_id", "claude"),
+        summary=args.get("summary", ""),
+    )
     return [TextContent(type="text", text=compact_json(result))]
 
 
-async def handle_contextual_retrieve(args: Dict[str, Any]) -> List[TextContent]:
-    if not contextual_retriever:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await contextual_retriever.retrieve_for_conversation(
-        args["user_id"], args["messages"],
-        max_memories=args.get("max_memories", 12))
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_rank_by_importance(args: Dict[str, Any]) -> List[TextContent]:
-    from src.memory.memory_intelligence import ImportanceScorer
-    if not typed_memory_store:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await ImportanceScorer.rank_memories(
-        typed_memory_store, args["user_id"], limit=args.get("limit", 50))
-    return [TextContent(type="text", text=compact_json({"ranked": result, "count": len(result)}))]
-
-
-async def handle_surface_conflicts(args: Dict[str, Any]) -> List[TextContent]:
-    if not conflict_surfacer:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await conflict_surfacer.detect_and_surface(args["user_id"])
-    return [TextContent(type="text", text=compact_json({"conflicts": result, "count": len(result)}))]
-
-
-async def handle_resolve_conflict(args: Dict[str, Any]) -> List[TextContent]:
-    if not conflict_surfacer:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await conflict_surfacer.resolve_conflict(
-        args["conflict_id"], args["action"], args["user_id"])
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_memory_clusters(args: Dict[str, Any]) -> List[TextContent]:
-    if not memory_clusterer:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await memory_clusterer.build_clusters(
-        args["user_id"],
-        similarity_threshold=args.get("similarity_threshold", 0.5),
-        min_cluster_size=args.get("min_cluster_size", 2))
-    return [TextContent(type="text", text=compact_json({"clusters": result, "count": len(result)}))]
-
-
-async def handle_share_memory(args: Dict[str, Any]) -> List[TextContent]:
-    if not shared_memory_mgr:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await shared_memory_mgr.share_memory(
-        args["memory_id"], args["owner_id"], args["target_user_id"],
-        permission=args.get("permission", "read"))
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_shared_with_me(args: Dict[str, Any]) -> List[TextContent]:
-    if not shared_memory_mgr:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await shared_memory_mgr.get_shared_with_me(args["user_id"])
-    return [TextContent(type="text", text=compact_json({"shared_memories": result, "count": len(result)}))]
-
-
-async def handle_export_memory_profile(args: Dict[str, Any]) -> List[TextContent]:
-    if not memory_portability:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await memory_portability.export_profile(args["user_id"])
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_import_memory_profile(args: Dict[str, Any]) -> List[TextContent]:
-    if not memory_portability:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    import json as _json
-    try:
-        profile = _json.loads(args["profile_json"])
-    except Exception as e:
-        return [TextContent(type="text", text=compact_json({"error": f"Invalid JSON: {e}"}))]
-    result = await memory_portability.import_profile(
-        profile, target_user_id=args.get("target_user_id"),
-        merge=args.get("merge", True))
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_memory_provenance(args: Dict[str, Any]) -> List[TextContent]:
-    if not provenance_tracker:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await provenance_tracker.get_provenance(args["memory_id"])
+async def handle_get_working_memory(args: Dict[str, Any]) -> List[TextContent]:
+    if not working_memory_compressor:
+        return [TextContent(type="text", text=compact_json({"error": "Session continuity not initialized"}))]
+    result = working_memory_compressor.get_latest(args.get("user_id", "claude"))
     if not result:
-        return [TextContent(type="text", text=compact_json({"error": "No provenance found", "memory_id": args["memory_id"]}))]
+        return [TextContent(type="text", text=compact_json({"ok": False, "error": "No working memory snapshot found"}))]
     return [TextContent(type="text", text=compact_json(result))]
 
 
-async def handle_apply_confidence_decay(args: Dict[str, Any]) -> List[TextContent]:
-    if not confidence_decay_engine:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await confidence_decay_engine.apply_evidence_decay(args["user_id"])
-    return [TextContent(type="text", text=compact_json({"adjustments": result, "count": len(result)}))]
+# === IMPROVEMENT LOOP HANDLERS ===
+# Memory Intelligence handlers → mcp_server/handlers/intelligence_handlers.py
+# ΦRMS handlers → mcp_server/handlers/phi_rms_handlers.py
+
+async def handle_tool_usage_stats(args: Dict[str, Any]) -> List[TextContent]:
+    if not tool_analytics:
+        return [TextContent(type="text", text=compact_json({"error": "Tool analytics not initialized"}))]
+    result = tool_analytics.get_usage_stats(days=int(args.get("days", 30)))
+    return [TextContent(type="text", text=compact_json(result))]
 
 
-async def handle_memory_audit(args: Dict[str, Any]) -> List[TextContent]:
-    if not memory_auditor:
-        return [TextContent(type="text", text=compact_json({"error": "Not initialized"}))]
-    result = await memory_auditor.full_audit(args["user_id"])
+async def handle_tool_redundancy_report(args: Dict[str, Any]) -> List[TextContent]:
+    if not tool_analytics:
+        return [TextContent(type="text", text=compact_json({"error": "Tool analytics not initialized"}))]
+    result = tool_analytics.get_redundancy_report(days=int(args.get("days", 30)))
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_tool_consolidation_proposals(args: Dict[str, Any]) -> List[TextContent]:
+    if not tool_analytics:
+        return [TextContent(type="text", text=compact_json({"error": "Tool analytics not initialized"}))]
+    # Pass all registered tool names so we can detect never-used tools
+    all_tools = [t.name for t in await list_tools()]
+    result = tool_analytics.propose_consolidation(all_tool_names=all_tools, days=int(args.get("days", 30)))
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_snapshot_architecture(args: Dict[str, Any]) -> List[TextContent]:
+    if not arch_snapshotter:
+        return [TextContent(type="text", text=compact_json({"error": "Architecture snapshotter not initialized"}))]
+    all_tools = [t.name for t in await list_tools()]
+    result = arch_snapshotter.take_snapshot(
+        label=args["label"],
+        tool_names=all_tools,
+        notes=args.get("notes", ""))
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_list_architecture_snapshots(args: Dict[str, Any]) -> List[TextContent]:
+    if not arch_snapshotter:
+        return [TextContent(type="text", text=compact_json({"error": "Architecture snapshotter not initialized"}))]
+    result = arch_snapshotter.list_snapshots(limit=int(args.get("limit", 20)))
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+async def handle_compare_architectures(args: Dict[str, Any]) -> List[TextContent]:
+    if not arch_snapshotter:
+        return [TextContent(type="text", text=compact_json({"error": "Architecture snapshotter not initialized"}))]
+    result = arch_snapshotter.compare(args["snapshot_a"], args["snapshot_b"])
     return [TextContent(type="text", text=compact_json(result))]
 
 

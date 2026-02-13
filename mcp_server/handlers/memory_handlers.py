@@ -28,9 +28,9 @@ async def handle_store_typed(args: Dict[str, Any], mem_type: str) -> List[TextCo
         strength=1.0,
         created_at=now,
         last_accessed=now,
-        confidence=args.get("confidence", 0.5 if mt == MemoryType.BELIEF else 0.8),
+        confidence=float(args.get("confidence", 0.5 if mt == MemoryType.BELIEF else 0.8)),
         episode_timestamp=now if mt == MemoryType.EPISODIC else 0,
-        emotional_valence=args.get("emotional_valence", 0.0),
+        emotional_valence=float(args.get("emotional_valence", 0.0)),
         trigger=args.get("trigger", ""),
         action=args.get("action", ""),
         tags=args.get("tags", []),
@@ -59,8 +59,8 @@ async def handle_recall_memories(args: Dict[str, Any]) -> List[TextContent]:
     memories = await R.typed_memory_store.query(
         user_id=args["user_id"],
         memory_type=mt,
-        min_strength=args.get("min_strength", 0.1),
-        limit=args.get("limit", 20),
+        min_strength=float(args.get("min_strength", 0.1)),
+        limit=int(args.get("limit", 20)),
         tags=args.get("tags"),
     )
 
@@ -99,7 +99,7 @@ async def handle_search_memories(args: Dict[str, Any]) -> List[TextContent]:
     memories = await R.typed_memory_store.search(
         user_id=args["user_id"],
         query=args["query"],
-        limit=args.get("limit", 20),
+        limit=int(args.get("limit", 20)),
     )
 
     results = [{
@@ -123,7 +123,7 @@ async def handle_update_belief_mem(args: Dict[str, Any]) -> List[TextContent]:
         belief_id=args["belief_id"],
         evidence_type=args["evidence_type"],
         evidence_id=args.get("evidence_id", ""),
-        confidence_delta=args["confidence_delta"],
+        confidence_delta=float(args["confidence_delta"]),
     )
 
     if not belief:
@@ -166,7 +166,7 @@ async def handle_consolidate(args: Dict[str, Any]) -> List[TextContent]:
     """Run episodic → semantic consolidation."""
     new_semantics = await R.typed_memory_store.consolidate_episodes(
         user_id=args["user_id"],
-        min_episodes=args.get("min_episodes", 3),
+        min_episodes=int(args.get("min_episodes", 3)),
     )
 
     results = [{
@@ -202,7 +202,7 @@ async def handle_what_do_i_know(args: Dict[str, Any]) -> List[TextContent]:
     """Synthesized cross-type retrieval for a topic."""
     result = await R.typed_memory_store.what_do_i_know_about(
         user_id=args["user_id"], topic=args["topic"],
-        limit=args.get("limit", 30),
+        limit=int(args.get("limit", 30)),
     )
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -241,7 +241,7 @@ async def handle_auto_prune(args: Dict[str, Any]) -> List[TextContent]:
     """Auto-prune decayed memories."""
     result = await R.typed_memory_store.auto_prune(
         user_id=args["user_id"],
-        strength_threshold=args.get("strength_threshold", 0.05),
+        strength_threshold=float(args.get("strength_threshold", 0.05)),
     )
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -251,7 +251,7 @@ async def handle_get_relevant_context(args: Dict[str, Any]) -> List[TextContent]
     result = await R.typed_memory_store.get_relevant_context(
         user_id=args["user_id"],
         conversation_topic=args["conversation_topic"],
-        limit=args.get("limit", 15),
+        limit=int(args.get("limit", 15)),
     )
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -260,8 +260,8 @@ async def handle_user_timeline(args: Dict[str, Any]) -> List[TextContent]:
     """Chronological memory timeline."""
     result = await R.typed_memory_store.user_timeline(
         user_id=args["user_id"],
-        limit=args.get("limit", 20),
-        offset=args.get("offset", 0),
+        limit=int(args.get("limit", 20)),
+        offset=int(args.get("offset", 0)),
     )
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -273,8 +273,8 @@ async def handle_semantic_search(args: Dict[str, Any]) -> List[TextContent]:
 
     hits = await R.embedding_store.search(
         query=args["query"],
-        limit=args.get("limit", 10),
-        min_similarity=args.get("min_similarity", 0.3),
+        limit=int(args.get("limit", 10)),
+        min_similarity=float(args.get("min_similarity", 0.3)),
     )
 
     results = []
@@ -330,8 +330,8 @@ async def handle_find_similar(args: Dict[str, Any]) -> List[TextContent]:
 
     hits = await R.embedding_store.find_similar(
         memory_id=args["memory_id"],
-        limit=args.get("limit", 5),
-        min_similarity=args.get("min_similarity", 0.5),
+        limit=int(args.get("limit", 5)),
+        min_similarity=float(args.get("min_similarity", 0.5)),
     )
 
     results = []

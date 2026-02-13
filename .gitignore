@@ -63,3 +63,24 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# ── Binary Shield: Tier 1 proprietary source files ──────────────
+# These .py files contain core IP. Only compiled .so binaries ship.
+# KEEP A PRIVATE BACKUP of these files outside the repo!
+src/memory/phi_rms.py
+src/memory/memory_pipeline.py
+src/memory/memory_jury.py
+src/memory/session_continuity.py
+src/analysis/epistemic_v2.py
+src/analysis/pltm_self.py
+
+# Allow compiled .so binaries (override global *.so ignore)
+!src/memory/*.so
+!src/analysis/*.so
+!src/core/*.so
+!src/learning/*.so
+
+# Cython build artifacts
+*.c
+!src/**/*.c
+build/
