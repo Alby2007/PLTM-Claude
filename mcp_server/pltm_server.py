@@ -62,6 +62,8 @@ arch_snapshotter = None
 working_memory_compressor = None
 trajectory_encoder = None
 handoff_protocol = None
+autonomous_learning = None
+active_learning = None
 _current_session_id = ""
 
 
@@ -183,7 +185,18 @@ async def initialize_pltm(custom_db_path: str = None):
     _reg.trajectory_encoder = trajectory_encoder
     _reg.handoff_protocol = handoff_protocol
     
-    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence + ΦRMS + analytics)")
+    # Initialize Autonomous + Active Learning engines
+    from src.learning.autonomous_learning import AutonomousLearningEngine
+    from src.learning.active_learning import ActiveLearningEngine
+    global autonomous_learning, active_learning
+    autonomous_learning = AutonomousLearningEngine(db_path)
+    await autonomous_learning.connect(store)
+    active_learning = ActiveLearningEngine(db_path)
+    await active_learning.connect(store)
+    _reg.autonomous_learning = autonomous_learning
+    _reg.active_learning = active_learning
+    
+    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence + ΦRMS + analytics + learning)")
 
 
 # Create MCP server
@@ -787,6 +800,119 @@ async def list_tools() -> List[Tool]:
                     "to_domain": {"type": "string"}
                 },
                 "required": ["from_domain", "to_domain"]
+            }
+        ),
+        
+        # === AUTONOMOUS LEARNING ENGINE ===
+        Tool(
+            name="auto_learn_schedules",
+            description="Get all autonomous learning schedules with status (overdue tasks, run counts).",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        Tool(
+            name="auto_learn_run_due",
+            description="Run all overdue learning tasks (arXiv, GitHub, news, consolidation, Φ measurement).",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        Tool(
+            name="auto_learn_run_task",
+            description="Run a specific learning task immediately.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task": {"type": "string", "description": "Task name from schedules (e.g. arxiv_consciousness, github_trending, consolidation, phi_measurement)"}
+                },
+                "required": ["task"]
+            }
+        ),
+        Tool(
+            name="auto_learn_digest",
+            description="Get learning digest: what was learned since last session, Φ trajectory, graph growth.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "since_hours": {"type": "number", "description": "Hours to look back (default 24)"}
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="auto_learn_phi_history",
+            description="Get Φ measurement history and trend (growing/stable/declining).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max snapshots (default 20)"}
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="auto_learn_update_schedule",
+            description="Update a learning schedule (interval, enabled/disabled).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task": {"type": "string"},
+                    "interval_hours": {"type": "number"},
+                    "enabled": {"type": "boolean"}
+                },
+                "required": ["task"]
+            }
+        ),
+        
+        # === ACTIVE LEARNING ENGINE ===
+        Tool(
+            name="search_and_learn",
+            description="Full pipeline: search→extract→verify→store. Searches arXiv/web/GitHub, extracts facts, verifies against existing knowledge, stores new facts.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "What to search for"},
+                    "source": {"type": "string", "enum": ["arxiv", "web", "github"], "description": "Where to search (default: arxiv)"},
+                    "max_results": {"type": "integer", "description": "Max results to process (default: 5)"}
+                },
+                "required": ["query"]
+            }
+        ),
+        Tool(
+            name="propose_hypothesis",
+            description="Propose a hypothesis to track. Confidence updates via Bayesian evidence accumulation.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "statement": {"type": "string", "description": "The hypothesis statement"},
+                    "domains": {"type": "array", "items": {"type": "string"}, "description": "Relevant domains"},
+                    "prior_confidence": {"type": "number", "description": "Initial belief (0-1, default 0.5)"},
+                    "verification_strategy": {"type": "string", "description": "How to test this hypothesis"}
+                },
+                "required": ["statement"]
+            }
+        ),
+        Tool(
+            name="submit_evidence",
+            description="Submit evidence for/against a hypothesis. Auto-resolves at extreme confidence.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "hypothesis_id": {"type": "string"},
+                    "evidence": {"type": "string", "description": "Description of the evidence"},
+                    "direction": {"type": "string", "enum": ["for", "against"]},
+                    "strength": {"type": "number", "description": "Evidence strength (0-1, default 0.5)"},
+                    "source_url": {"type": "string"}
+                },
+                "required": ["hypothesis_id", "evidence", "direction"]
+            }
+        ),
+        Tool(
+            name="get_hypotheses",
+            description="Get active hypotheses being tracked (proposed/testing).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max to return (default 10)"}
+                },
+                "required": []
             }
         ),
         
@@ -2155,6 +2281,18 @@ def _build_dispatch_table():
         "cross_domain_synthesis": handle_synthesis,
         "get_universal_principles": handle_universal_principles,
         "get_transfer_suggestions": handle_transfer_suggestions,
+        # --- Autonomous Learning ---
+        "auto_learn_schedules": handle_auto_learn_schedules,
+        "auto_learn_run_due": handle_auto_learn_run_due,
+        "auto_learn_run_task": handle_auto_learn_run_task,
+        "auto_learn_digest": handle_auto_learn_digest,
+        "auto_learn_phi_history": handle_auto_learn_phi_history,
+        "auto_learn_update_schedule": handle_auto_learn_update_schedule,
+        # --- Active Learning ---
+        "search_and_learn": handle_search_and_learn,
+        "propose_hypothesis": handle_propose_hypothesis,
+        "submit_evidence": handle_submit_evidence,
+        "get_hypotheses": handle_get_hypotheses,
         "learn_from_conversation": handle_learn_conversation,
         # --- PLTM 2.0 (inline) ---
         "quantum_add_state": handle_quantum_add,
@@ -3166,6 +3304,75 @@ async def handle_transfer_suggestions(args: Dict[str, Any]) -> List[TextContent]
         args["to_domain"]
     )
     
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+# ── Autonomous Learning Handlers ─────────────────────────────────────────────
+
+async def handle_auto_learn_schedules(args: Dict[str, Any]) -> List[TextContent]:
+    result = await autonomous_learning.get_schedules()
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_auto_learn_run_due(args: Dict[str, Any]) -> List[TextContent]:
+    result = await autonomous_learning.run_due_tasks()
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_auto_learn_run_task(args: Dict[str, Any]) -> List[TextContent]:
+    result = await autonomous_learning.run_task(args["task"])
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_auto_learn_digest(args: Dict[str, Any]) -> List[TextContent]:
+    since = float(args.get("since_hours", 24))
+    result = await autonomous_learning.get_learning_digest(since)
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_auto_learn_phi_history(args: Dict[str, Any]) -> List[TextContent]:
+    limit = int(args.get("limit", 20))
+    result = await autonomous_learning.get_phi_history(limit)
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_auto_learn_update_schedule(args: Dict[str, Any]) -> List[TextContent]:
+    result = await autonomous_learning.update_schedule(
+        task=args["task"],
+        interval_hours=float(args["interval_hours"]) if "interval_hours" in args else None,
+        enabled=args.get("enabled"),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+# ── Active Learning Handlers ─────────────────────────────────────────────────
+
+async def handle_search_and_learn(args: Dict[str, Any]) -> List[TextContent]:
+    result = await active_learning.search_and_learn(
+        query=args["query"],
+        source=args.get("source", "arxiv"),
+        max_results=int(args.get("max_results", 5)),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_propose_hypothesis(args: Dict[str, Any]) -> List[TextContent]:
+    result = await active_learning.propose_hypothesis(
+        statement=args["statement"],
+        domains=args.get("domains"),
+        prior_confidence=float(args.get("prior_confidence", 0.5)),
+        verification_strategy=args.get("verification_strategy", ""),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_submit_evidence(args: Dict[str, Any]) -> List[TextContent]:
+    result = await active_learning.submit_evidence(
+        hypothesis_id=args["hypothesis_id"],
+        evidence=args["evidence"],
+        direction=args["direction"],
+        strength=float(args.get("strength", 0.5)),
+        source_url=args.get("source_url", ""),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_get_hypotheses(args: Dict[str, Any]) -> List[TextContent]:
+    result = await active_learning.get_active_hypotheses(
+        limit=int(args.get("limit", 10)),
+    )
     return [TextContent(type="text", text=compact_json(result))]
 
 
