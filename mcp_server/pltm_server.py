@@ -2771,7 +2771,15 @@ async def handle_mood_patterns(args: Dict[str, Any]) -> List[TextContent]:
 async def handle_resolve_conflict(args: Dict[str, Any]) -> List[TextContent]:
     """Resolve conflicting traits"""
     user_id = args["user_id"]
-    trait_objects = args["trait_objects"]
+    # Accept 'traits' or 'conflicting_traits' as aliases for 'trait_objects'
+    trait_objects = args.get("trait_objects") or args.get("traits") or args.get("conflicting_traits", [])
+    if not trait_objects:
+        return [TextContent(type="text", text=compact_json({"error": "'trait_objects' is required (list of conflicting trait strings)"}))]
+    if isinstance(trait_objects, str):
+        try:
+            trait_objects = json.loads(trait_objects)
+        except (json.JSONDecodeError, TypeError):
+            trait_objects = [trait_objects]
     
     # Get all personality atoms
     all_atoms = await store.get_atoms_by_subject(user_id)
@@ -3459,7 +3467,11 @@ async def handle_run_task(args: Dict[str, Any]) -> List[TextContent]:
     if _continuous_learner is None:
         _continuous_learner = ContinuousLearningLoop(store)
     
-    result = await _continuous_learner.run_single_task(args["task_name"])
+    # Accept 'task' as alias for 'task_name'
+    task_name = args.get("task_name") or args.get("task", "")
+    if not task_name:
+        return [TextContent(type="text", text=compact_json({"error": "'task_name' is required: arxiv_latest|github_trending|news_feed|knowledge_consolidation"}))]
+    result = await _continuous_learner.run_single_task(task_name)
     
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -3562,10 +3574,14 @@ async def handle_propose_hypothesis(args: Dict[str, Any]) -> List[TextContent]:
     return [TextContent(type="text", text=compact_json(result))]
 
 async def handle_submit_evidence(args: Dict[str, Any]) -> List[TextContent]:
+    # Accept 'type'/'evidence_type' as alias for 'direction'
+    direction = args.get("direction") or args.get("type") or args.get("evidence_type", "")
+    if direction not in ("for", "against"):
+        return [TextContent(type="text", text=compact_json({"error": "'direction' is required: 'for' or 'against'"}))]
     result = await active_learning.submit_evidence(
         hypothesis_id=args["hypothesis_id"],
-        evidence=args["evidence"],
-        direction=args["direction"],
+        evidence=args.get("evidence") or args.get("description", ""),
+        direction=direction,
         strength=float(args.get("strength", 0.5)),
         source_url=args.get("source_url", ""),
     )
@@ -3625,9 +3641,13 @@ async def handle_emergence_observe(args: Dict[str, Any]) -> List[TextContent]:
     return [TextContent(type="text", text=compact_json(result))]
 
 async def handle_emergence_record_outcome(args: Dict[str, Any]) -> List[TextContent]:
+    # Accept 'prediction_id' as alias for 'pred_id'
+    pred_id = args.get("pred_id") or args.get("prediction_id", "")
+    if not pred_id:
+        return [TextContent(type="text", text=compact_json({"error": "'pred_id' is required"}))]
     result = await emergence_detector.record_outcome(
-        pred_id=args["pred_id"],
-        did_emerge=bool(args["did_emerge"]),
+        pred_id=pred_id,
+        did_emerge=bool(args.get("did_emerge", args.get("emerged", False))),
         details=args.get("details", ""),
     )
     return [TextContent(type="text", text=compact_json(result))]
@@ -4505,10 +4525,16 @@ async def handle_log_claim(args: Dict[str, Any]) -> List[TextContent]:
 
 async def handle_resolve_claim(args: Dict[str, Any]) -> List[TextContent]:
     em = get_epistemic_monitor()
+    # Accept 'correct' as alias for 'was_correct'
+    was_correct = args.get("was_correct")
+    if was_correct is None:
+        was_correct = args.get("correct")
+    if was_correct is None:
+        return [TextContent(type="text", text=compact_json({"error": "'was_correct' (boolean) is required"}))]
     result = em.resolve_claim(
         claim_id=args.get("claim_id", ""),
         claim_text=args.get("claim_text", ""),
-        was_correct=args["was_correct"],
+        was_correct=bool(was_correct),
         correction_source=args.get("correction_source", ""),
         correction_detail=args.get("correction_detail", ""),
     )
@@ -4756,6 +4782,12 @@ async def handle_end_session(args: Dict[str, Any]) -> List[TextContent]:
     
     # Auto-extract learnings into typed memories
     learnings = args.get("learnings", [])
+    # Handle stringified JSON (Claude sometimes sends learnings as a JSON string)
+    if isinstance(learnings, str):
+        try:
+            learnings = json.loads(learnings)
+        except (json.JSONDecodeError, TypeError):
+            learnings = []
     stored_memories = []
     if learnings and typed_memory_store:
         import time as _time
@@ -4770,27 +4802,33 @@ async def handle_end_session(args: Dict[str, Any]) -> List[TextContent]:
         user_id = args.get("user_id", "claude")
         
         for learning in learnings:
-            mem_type = type_map.get(learning.get("type", "episodic"), MemoryType.EPISODIC)
-            tags = learning.get("tags", [])
-            # Auto-tag
-            tags = typed_memory_store.auto_tag(learning["content"], tags)
-            
-            mem = TypedMemory(
-                id="",
-                memory_type=mem_type,
-                user_id=user_id,
-                content=learning["content"],
-                context=f"end_session extraction: {args.get('summary', '')[:100]}",
-                source="session_extraction",
-                confidence=learning.get("confidence", 0.6),
-                emotional_valence=learning.get("emotional_valence", 0.0),
-                episode_timestamp=_time.time() if mem_type == MemoryType.EPISODIC else 0,
-                trigger=learning.get("trigger", ""),
-                action=learning.get("action", ""),
-                tags=tags,
-            )
-            mem_id = await typed_memory_store.store(mem)
-            stored_memories.append({"id": mem_id, "type": learning.get("type"), "content": learning["content"][:80]})
+            # Skip entries missing required 'content' field
+            if not isinstance(learning, dict) or not learning.get("content"):
+                continue
+            try:
+                mem_type = type_map.get(learning.get("type", "episodic"), MemoryType.EPISODIC)
+                tags = learning.get("tags", [])
+                # Auto-tag
+                tags = typed_memory_store.auto_tag(learning["content"], tags)
+                
+                mem = TypedMemory(
+                    id="",
+                    memory_type=mem_type,
+                    user_id=user_id,
+                    content=learning["content"],
+                    context=f"end_session extraction: {args.get('summary', '')[:100]}",
+                    source="session_extraction",
+                    confidence=learning.get("confidence", 0.6),
+                    emotional_valence=learning.get("emotional_valence", 0.0),
+                    episode_timestamp=_time.time() if mem_type == MemoryType.EPISODIC else 0,
+                    trigger=learning.get("trigger", ""),
+                    action=learning.get("action", ""),
+                    tags=tags,
+                )
+                mem_id = await typed_memory_store.store(mem)
+                stored_memories.append({"id": mem_id, "type": learning.get("type"), "content": learning["content"][:80]})
+            except Exception as e:
+                logger.debug(f"Failed to store learning: {e}")
     
     # Run consolidation if we have enough episodes
     consolidated = []
@@ -4965,15 +5003,20 @@ async def handle_jury_feedback(args: Dict[str, Any]) -> List[TextContent]:
     if not typed_memory_store or not typed_memory_store.jury:
         return [TextContent(type="text", text=compact_json({"error": "Jury not initialized"}))]
     
+    # Accept 'atom_id' or 'id' as alias for 'memory_id'
+    memory_id = args.get("memory_id") or args.get("atom_id") or args.get("id", "")
+    if not memory_id:
+        return [TextContent(type="text", text=compact_json({"error": "'memory_id' is required"}))]
+    
     typed_memory_store.jury.record_feedback(
-        memory_id=args["memory_id"],
+        memory_id=memory_id,
         feedback_type=args["feedback_type"],
         details=args.get("details", ""),
     )
     
     return [TextContent(type="text", text=compact_json({
         "status": "recorded",
-        "memory_id": args["memory_id"],
+        "memory_id": memory_id,
         "feedback_type": args["feedback_type"],
         "adaptive_weights": typed_memory_store.jury.meta.get_adaptive_weights() if typed_memory_store.jury.meta else {},
     }))]

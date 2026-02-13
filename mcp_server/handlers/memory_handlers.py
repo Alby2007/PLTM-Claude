@@ -119,11 +119,17 @@ async def handle_search_memories(args: Dict[str, Any]) -> List[TextContent]:
 
 async def handle_update_belief_mem(args: Dict[str, Any]) -> List[TextContent]:
     """Update a belief with new evidence."""
+    # Accept 'delta'/'amount'/'confidence_change' as aliases for 'confidence_delta'
+    confidence_delta = args.get("confidence_delta") or args.get("delta") or args.get("amount") or args.get("confidence_change")
+    if confidence_delta is None:
+        return [TextContent(type="text", text=compact_json({"error": "'confidence_delta' (number) is required"}))]
+    # Accept 'direction'/'type' as alias for 'evidence_type'
+    evidence_type = args.get("evidence_type") or args.get("direction") or args.get("type", "for")
     belief = await R.typed_memory_store.update_belief(
-        belief_id=args["belief_id"],
-        evidence_type=args["evidence_type"],
+        belief_id=args.get("belief_id") or args.get("id", ""),
+        evidence_type=evidence_type,
         evidence_id=args.get("evidence_id", ""),
-        confidence_delta=float(args["confidence_delta"]),
+        confidence_delta=float(confidence_delta),
     )
 
     if not belief:
@@ -141,9 +147,15 @@ async def handle_update_belief_mem(args: Dict[str, Any]) -> List[TextContent]:
 
 async def handle_record_procedure(args: Dict[str, Any]) -> List[TextContent]:
     """Record procedure outcome."""
+    # Accept 'worked'/'result'/'outcome' as aliases for 'success'
+    success = args.get("success")
+    if success is None:
+        success = args.get("worked") or args.get("result") or args.get("outcome")
+    if success is None:
+        return [TextContent(type="text", text=compact_json({"error": "'success' (boolean) is required"}))]
     proc = await R.typed_memory_store.record_procedure_outcome(
-        procedure_id=args["procedure_id"],
-        success=args["success"],
+        procedure_id=args.get("procedure_id") or args.get("id", ""),
+        success=bool(success),
     )
 
     if not proc:
