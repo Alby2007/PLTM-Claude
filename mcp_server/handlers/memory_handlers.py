@@ -215,8 +215,12 @@ async def handle_auto_tag(args: Dict[str, Any]) -> List[TextContent]:
 
 async def handle_correct_memory(args: Dict[str, Any]) -> List[TextContent]:
     """Correct a memory's content."""
+    # Accept 'correction' as alias for 'new_content' (Claude sometimes uses this)
+    new_content = args.get("new_content") or args.get("correction", "")
+    if not new_content:
+        return [TextContent(type="text", text=compact_json({"error": "'new_content' is required"}))]
     mem = await R.typed_memory_store.correct_memory(
-        memory_id=args["memory_id"], new_content=args["new_content"],
+        memory_id=args["memory_id"], new_content=new_content,
         reason=args.get("reason", ""), new_confidence=args.get("new_confidence"),
     )
     if not mem:

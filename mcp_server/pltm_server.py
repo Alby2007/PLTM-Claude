@@ -747,25 +747,27 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="batch_ingest_wikipedia",
-            description="Batch ingest Wikipedia articles.",
+            description="Batch ingest Wikipedia articles. Pass 'titles' (list of title strings) OR 'articles' (list of {title, content, url} objects).",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "articles": {"type": "array", "items": {"type": "object"}}
+                    "titles": {"type": "array", "items": {"type": "string"}, "description": "List of Wikipedia article titles to fetch and ingest"},
+                    "articles": {"type": "array", "items": {"type": "object"}, "description": "Pre-fetched articles with {title, content, url}"}
                 },
-                "required": ["articles"]
+                "required": []
             }
         ),
         
         Tool(
             name="batch_ingest_papers",
-            description="Batch ingest research papers.",
+            description="Batch ingest arXiv papers. Pass 'arxiv_ids' (list of ID strings) OR 'papers' (list of {arxiv_id, title, abstract} objects).",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "papers": {"type": "array", "items": {"type": "object"}}
+                    "arxiv_ids": {"type": "array", "items": {"type": "string"}, "description": "List of arXiv IDs like '2301.04104'"},
+                    "papers": {"type": "array", "items": {"type": "object"}, "description": "Paper objects with {arxiv_id, title, abstract}"}
                 },
-                "required": ["papers"]
+                "required": []
             }
         ),
         
@@ -1618,7 +1620,7 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="bootstrap_self_model",
-            description="Bootstrap self-model from existing data.",
+            description="Bootstrap self-model by scanning existing DB data (atoms, communication, curiosity, reasoning, predictions, values). Returns summary statistics. No arguments required.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -2183,14 +2185,14 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="correct_memory",
-            description="Correct memory content with provenance trail.",
+            description="Correct a memory's content. Pass the corrected text in 'new_content'. Old content is preserved in correction history.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "memory_id": {"type": "string"},
-                    "new_content": {"type": "string"},
-                    "reason": {"type": "string"},
-                    "new_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                    "memory_id": {"type": "string", "description": "ID of the memory to correct"},
+                    "new_content": {"type": "string", "description": "The corrected text to replace the old content"},
+                    "reason": {"type": "string", "description": "Why the correction is needed"},
+                    "new_confidence": {"type": "number", "minimum": 0, "maximum": 1, "description": "Updated confidence (0-1)"},
                 },
                 "required": ["memory_id", "new_content"]
             }
@@ -3357,8 +3359,33 @@ async def handle_batch_wikipedia(args: Dict[str, Any]) -> List[TextContent]:
     """Batch ingest Wikipedia articles"""
     from src.learning.batch_ingestion import BatchIngestionPipeline
     
+    # Accept 'titles' shorthand — auto-build articles list
+    articles = args.get("articles")
+    titles = args.get("titles")
+    
+    # Handle stringified JSON (Claude sometimes sends '["title"]' as a string)
+    if isinstance(titles, str):
+        try:
+            titles = json.loads(titles)
+        except (json.JSONDecodeError, TypeError):
+            titles = [titles]
+    if isinstance(articles, str):
+        try:
+            articles = json.loads(articles)
+        except (json.JSONDecodeError, TypeError):
+            articles = []
+    
+    if titles and not articles:
+        articles = [
+            {"title": t, "content": f"Wikipedia article: {t}", "url": f"https://en.wikipedia.org/wiki/{t.replace(' ', '_')}"}
+            for t in titles
+        ]
+    
+    if not articles:
+        return [TextContent(type="text", text=compact_json({"error": "Pass 'titles' (list of strings) or 'articles' (list of {title, content, url})"}))]
+    
     pipeline = BatchIngestionPipeline(store)
-    result = await pipeline.ingest_wikipedia_articles(args["articles"])
+    result = await pipeline.ingest_wikipedia_articles(articles)
     
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -3367,8 +3394,33 @@ async def handle_batch_papers(args: Dict[str, Any]) -> List[TextContent]:
     """Batch ingest research papers"""
     from src.learning.batch_ingestion import BatchIngestionPipeline
     
+    # Accept 'arxiv_ids' shorthand — auto-build papers list
+    papers = args.get("papers")
+    arxiv_ids = args.get("arxiv_ids")
+    
+    # Handle stringified JSON (Claude sometimes sends '["id"]' as a string)
+    if isinstance(arxiv_ids, str):
+        try:
+            arxiv_ids = json.loads(arxiv_ids)
+        except (json.JSONDecodeError, TypeError):
+            arxiv_ids = [arxiv_ids]
+    if isinstance(papers, str):
+        try:
+            papers = json.loads(papers)
+        except (json.JSONDecodeError, TypeError):
+            papers = []
+    
+    if arxiv_ids and not papers:
+        papers = [
+            {"arxiv_id": aid, "title": f"arXiv:{aid}", "abstract": ""}
+            for aid in arxiv_ids
+        ]
+    
+    if not papers:
+        return [TextContent(type="text", text=compact_json({"error": "Pass 'arxiv_ids' (list of strings) or 'papers' (list of {arxiv_id, title, abstract})"}))]
+    
     pipeline = BatchIngestionPipeline(store)
-    result = await pipeline.ingest_arxiv_papers(args["papers"])
+    result = await pipeline.ingest_arxiv_papers(papers)
     
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -4598,32 +4650,35 @@ async def handle_bootstrap_self_model(args: Dict[str, Any]) -> List[TextContent]
     """Bootstrap self-model from existing database data."""
     import sqlite3 as sync_sqlite
     import os
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pltm_mcp.db")
-    conn = sync_sqlite.connect(db_path)
 
-    summary = {}
+    def _sync_bootstrap():
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pltm_mcp.db")
+        conn = sync_sqlite.connect(db_path, timeout=10)
+        summary = {}
+        try:
+            summary["atoms"] = conn.execute("SELECT COUNT(*) FROM atoms").fetchone()[0]
+            summary["communication_records"] = conn.execute("SELECT COUNT(*) FROM self_communication").fetchone()[0]
+            summary["curiosity_records"] = conn.execute("SELECT COUNT(*) FROM self_curiosity").fetchone()[0]
+            summary["reasoning_records"] = conn.execute("SELECT COUNT(*) FROM self_reasoning").fetchone()[0]
+            summary["predictions"] = conn.execute("SELECT COUNT(*) FROM prediction_book").fetchone()[0]
+            summary["values"] = conn.execute("SELECT COUNT(*) FROM self_values").fetchone()[0]
 
-    # Count all data
-    summary["atoms"] = conn.execute("SELECT COUNT(*) FROM atoms").fetchone()[0]
-    summary["communication_records"] = conn.execute("SELECT COUNT(*) FROM self_communication").fetchone()[0]
-    summary["curiosity_records"] = conn.execute("SELECT COUNT(*) FROM self_curiosity").fetchone()[0]
-    summary["reasoning_records"] = conn.execute("SELECT COUNT(*) FROM self_reasoning").fetchone()[0]
-    summary["predictions"] = conn.execute("SELECT COUNT(*) FROM prediction_book").fetchone()[0]
-    summary["values"] = conn.execute("SELECT COUNT(*) FROM self_values").fetchone()[0]
+            domains = conn.execute(
+                "SELECT predicate, COUNT(*) as cnt FROM atoms GROUP BY predicate ORDER BY cnt DESC LIMIT 10"
+            ).fetchall()
+            summary["top_predicates"] = [{"predicate": r[0], "count": r[1]} for r in domains]
 
-    # Top domains from atoms
-    domains = conn.execute(
-        "SELECT predicate, COUNT(*) as cnt FROM atoms GROUP BY predicate ORDER BY cnt DESC LIMIT 10"
-    ).fetchall()
-    summary["top_predicates"] = [{"predicate": r[0], "count": r[1]} for r in domains]
+            subjects = conn.execute(
+                "SELECT subject, COUNT(*) as cnt FROM atoms GROUP BY subject ORDER BY cnt DESC LIMIT 10"
+            ).fetchall()
+            summary["top_subjects"] = [{"subject": r[0], "count": r[1]} for r in subjects]
+        finally:
+            conn.close()
+        return summary
 
-    # Top subjects
-    subjects = conn.execute(
-        "SELECT subject, COUNT(*) as cnt FROM atoms GROUP BY subject ORDER BY cnt DESC LIMIT 10"
-    ).fetchall()
-    summary["top_subjects"] = [{"subject": r[0], "count": r[1]} for r in subjects]
-
-    conn.close()
+    # Run sync SQLite queries in executor to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    summary = await loop.run_in_executor(None, _sync_bootstrap)
     return [TextContent(type="text", text=compact_json({"ok": True, "bootstrap": summary, "msg": "Self-model bootstrapped from existing data. Use self_profile for full profile."}))]
 
 
@@ -5650,8 +5705,12 @@ async def handle_auto_tag(args: Dict[str, Any]) -> List[TextContent]:
 
 async def handle_correct_memory(args: Dict[str, Any]) -> List[TextContent]:
     """Correct a memory's content."""
+    # Accept 'correction' as alias for 'new_content' (Claude sometimes uses this)
+    new_content = args.get("new_content") or args.get("correction", "")
+    if not new_content:
+        return [TextContent(type="text", text=compact_json({"error": "'new_content' is required"}))]
     mem = await typed_memory_store.correct_memory(
-        memory_id=args["memory_id"], new_content=args["new_content"],
+        memory_id=args["memory_id"], new_content=new_content,
         reason=args.get("reason", ""), new_confidence=args.get("new_confidence"),
     )
     if not mem:
