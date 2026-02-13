@@ -80,11 +80,8 @@ class MoodTracker:
         Returns:
             Mood string (e.g., "happy", "frustrated") or None
         """
-        # Get all mood atoms
-        all_atoms = await self.store.get_atoms_by_subject(
-            user_id,
-            graph=GraphType.SUBSTANTIATED
-        )
+        # Get all atoms for user (search all graphs — mood atoms may be unsubstantiated)
+        all_atoms = await self.store.get_atoms_by_subject(user_id)
         
         # Filter to mood atoms
         mood_atoms = [
@@ -122,11 +119,8 @@ class MoodTracker:
         """
         cutoff = datetime.now() - timedelta(days=days)
         
-        # Get all mood atoms
-        all_atoms = await self.store.get_atoms_by_subject(
-            user_id,
-            graph=GraphType.SUBSTANTIATED
-        )
+        # Get all atoms for user (search all graphs — mood atoms may be unsubstantiated)
+        all_atoms = await self.store.get_atoms_by_subject(user_id)
         
         # Filter to mood atoms within time range
         mood_atoms = [
@@ -160,16 +154,15 @@ class MoodTracker:
         # Define mood patterns
         mood_patterns = {
             "excited": {
-                "indicators": ["excited", "can't wait", "amazing", "incredible",
+                "indicators": ["excited", "exciting", "can't wait", "amazing", "incredible",
                               "wow", "omg", "🤩", "🚀", "holy shit", "insane",
-                              "fucking", "so cool", "breakthrough", "working",
-                              "complete", "done", "finished", "built", "shipped"],
+                              "so cool", "breakthrough", "built", "shipped"],
                 "confidence_boost": 0.85
             },
             "triumphant": {
-                "indicators": ["complete", "done", "finished", "success", "achieved",
-                              "accomplished", "nailed", "crushed", "killed it",
-                              "perfect", "exactly", "works", "working", "🎉", "✅"],
+                "indicators": ["success", "achieved", "accomplished", "nailed",
+                              "crushed", "killed it", "perfect", "exactly",
+                              "it works", "🎉", "✅"],
                 "confidence_boost": 0.85
             },
             "happy": {
@@ -178,24 +171,24 @@ class MoodTracker:
                 "confidence_boost": 0.8
             },
             "frustrated": {
-                "indicators": ["frustrated", "annoying", "annoyed", "ugh", "argh",
+                "indicators": ["frustrated", "frustrating", "annoying", "annoyed", "ugh", "argh",
                               "why won't", "doesn't work", "broken", "😤", "😠",
-                              "not working", "bug", "issue", "problem", "stuck"],
+                              "not working", "nothing works", "bug", "issue", "problem", "stuck"],
                 "confidence_boost": 0.8
             },
             "impatient": {
-                "indicators": ["come on", "let's go", "hurry", "now", "quickly",
-                              "duh", "obviously", "just", "already", "waiting"],
+                "indicators": ["come on", "let's go", "hurry", "quickly",
+                              "duh", "obviously", "already", "waiting"],
                 "confidence_boost": 0.75
             },
             "curious": {
                 "indicators": ["interesting", "hmm", "wonder", "what if", "could we",
-                              "how about", "tell me", "explain", "why", "how"],
-                "confidence_boost": 0.7
+                              "how about", "tell me", "explain"],
+                "confidence_boost": 0.8
             },
             "focused": {
-                "indicators": ["let's", "next", "continue", "proceed", "okay",
-                              "alright", "moving on", "now", "step"],
+                "indicators": ["let's", "next", "continue", "proceed",
+                              "alright", "moving on", "step"],
                 "confidence_boost": 0.65
             },
             "sad": {
@@ -204,19 +197,20 @@ class MoodTracker:
                 "confidence_boost": 0.8
             },
             "stressed": {
-                "indicators": ["stressed", "overwhelmed", "anxious", "worried",
-                              "pressure", "deadline", "too much", "can't handle"],
-                "confidence_boost": 0.7
+                "indicators": ["stressed", "stressful", "overwhelmed", "overwhelming",
+                              "anxious", "worried", "pressure", "deadline",
+                              "too much", "can't handle"],
+                "confidence_boost": 0.8
             },
             "confused": {
-                "indicators": ["confused", "don't understand", "unclear", "what",
-                              "huh", "🤔", "lost", "not sure"],
-                "confidence_boost": 0.6
+                "indicators": ["confused", "confusing", "don't understand", "unclear",
+                              "huh", "🤔", "lost", "not sure", "makes no sense"],
+                "confidence_boost": 0.8
             },
             "calm": {
-                "indicators": ["calm", "relaxed", "peaceful", "content", "fine",
-                              "okay", "good"],
-                "confidence_boost": 0.6
+                "indicators": ["calm", "relaxed", "peaceful", "content",
+                              "chill", "serene"],
+                "confidence_boost": 0.8
             }
         }
         
@@ -229,7 +223,7 @@ class MoodTracker:
                     indicators_found.append(indicator)
             
             if indicators_found:
-                confidence = pattern["confidence_boost"] * (len(indicators_found) / 3)
+                confidence = pattern["confidence_boost"] * min(1.0, (0.5 + len(indicators_found) * 0.25))
                 confidence = min(confidence, 1.0)  # Cap at 1.0
                 
                 detected_moods.append({

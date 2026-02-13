@@ -61,16 +61,12 @@ class PersonalityMoodAgent:
         # 1. Detect mood from message
         mood_atom = await self.mood_tracker.detect_mood(user_id, message)
         if mood_atom:
-            # Store mood in memory
-            async for _ in self.pipeline.process_message(
-                f"{user_id} is feeling {mood_atom.object}",
-                user_id=user_id
-            ):
-                pass  # Consume generator
+            # Store mood atom directly so get_current_mood() can find it
+            await self.store.add_atom(mood_atom)
             logger.info(f"Detected mood: {mood_atom.object}")
         
-        # 2. Get current mood
-        current_mood = await self.mood_tracker.get_current_mood(user_id)
+        # 2. Get current mood (use freshly detected mood if available)
+        current_mood = mood_atom.object if mood_atom else await self.mood_tracker.get_current_mood(user_id)
         
         # 3. Get personality profile
         personality = await self.personality_synth.synthesize_personality(user_id)
@@ -81,13 +77,9 @@ class PersonalityMoodAgent:
                 user_id, message
             )
             
-            # Store extracted traits
+            # Store trait atoms directly so synthesizer can find them
             for trait in traits:
-                async for _ in self.pipeline.process_message(
-                    f"{user_id} {trait.predicate} {trait.object}",
-                    user_id=user_id
-                ):
-                    pass  # Consume generator
+                await self.store.add_atom(trait)
             
             if traits:
                 logger.info(f"Extracted {len(traits)} personality traits")

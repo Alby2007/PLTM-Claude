@@ -73,11 +73,8 @@ class PersonalitySynthesizer:
         atom_type: AtomType
     ) -> List[MemoryAtom]:
         """Get all atoms of a specific type for user"""
-        # Get all atoms for this subject
-        all_atoms = await self.store.get_atoms_by_subject(
-            user_id,
-            graph=GraphType.SUBSTANTIATED
-        )
+        # Get all atoms for this subject (search all graphs — traits may be unsubstantiated)
+        all_atoms = await self.store.get_atoms_by_subject(user_id)
         
         # Filter by atom type
         return [atom for atom in all_atoms if atom.atom_type == atom_type]
