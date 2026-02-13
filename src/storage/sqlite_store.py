@@ -9,7 +9,7 @@ from uuid import UUID
 import aiosqlite
 from loguru import logger
 
-from src.core.models import GraphType, MemoryAtom, Provenance
+from src.core.models import AtomType, GraphType, MemoryAtom, Provenance
 
 
 class SQLiteGraphStore:
@@ -620,9 +620,16 @@ class SQLiteGraphStore:
         except ValueError:
             atom_id = UUID(row["id"].ljust(32, '0')[:32].replace('-', '')[:32])
 
+        # Safely parse atom_type — fall back to ENTITY for unknown types
+        try:
+            atom_type = AtomType(row["atom_type"])
+        except ValueError:
+            logger.warning(f"Unknown atom_type '{row['atom_type']}' for atom {row['id']}, falling back to ENTITY")
+            atom_type = AtomType.ENTITY
+
         return MemoryAtom(
             id=atom_id,
-            atom_type=row["atom_type"],
+            atom_type=atom_type,
             graph=row["graph"],
             subject=row["subject"],
             predicate=row["predicate"],

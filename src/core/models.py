@@ -18,6 +18,10 @@ class AtomType(str, Enum):
     HYPOTHESIS = "hypothesis"
     INVARIANT = "invariant"
     
+    # General knowledge types
+    FACT = "fact"                # General factual knowledge
+    ATTRIBUTE = "attribute"      # Properties/attributes of entities
+    
     # New granular types (replacing broad RELATION)
     AFFILIATION = "affiliation"  # works_at, studies_at, member_of
     SOCIAL = "social"            # knows, reports_to, friends_with
