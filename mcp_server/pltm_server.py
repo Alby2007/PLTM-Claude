@@ -354,9 +354,10 @@ async def list_tools() -> List[Tool]:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of conflicting trait objects (e.g., ['concise', 'detailed'])"
-                    }
+                    },
+                    "traits": {"type": "array", "items": {"type": "string"}, "description": "Alias for trait_objects"}
                 },
-                "required": ["user_id", "trait_objects"]
+                "required": ["user_id"]
             }
         ),
         
@@ -799,9 +800,10 @@ async def list_tools() -> List[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "task_name": {"type": "string", "description": "arxiv_latest|github_trending|news_feed|knowledge_consolidation"}
+                    "task_name": {"type": "string", "description": "REQUIRED: arxiv_latest|github_trending|news_feed|knowledge_consolidation"},
+                    "task": {"type": "string", "description": "Alias for task_name"}
                 },
-                "required": ["task_name"]
+                "required": []
             }
         ),
         
@@ -926,17 +928,17 @@ async def list_tools() -> List[Tool]:
         ),
         Tool(
             name="submit_evidence",
-            description="Submit evidence for/against a hypothesis. Auto-resolves at extreme confidence.",
+            description="Submit evidence for/against a hypothesis. Pass 'direction' as 'for' or 'against'. Auto-resolves at extreme confidence.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "hypothesis_id": {"type": "string"},
                     "evidence": {"type": "string", "description": "Description of the evidence"},
-                    "direction": {"type": "string", "enum": ["for", "against"]},
+                    "direction": {"type": "string", "enum": ["for", "against"], "description": "REQUIRED: 'for' or 'against'"},
                     "strength": {"type": "number", "description": "Evidence strength (0-1, default 0.5)"},
                     "source_url": {"type": "string"}
                 },
-                "required": ["hypothesis_id", "evidence", "direction"]
+                "required": ["hypothesis_id", "evidence"]
             }
         ),
         Tool(
@@ -1015,15 +1017,18 @@ async def list_tools() -> List[Tool]:
         ),
         Tool(
             name="emergence_record_outcome",
-            description="After predicting emergence, record whether it actually happened. Triggers Bayesian weight update.",
+            description="After predicting emergence, record whether it actually happened. Triggers Bayesian weight update. Pass did_emerge=true/false.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pred_id": {"type": "string", "description": "Prediction ID from emergence_observe"},
-                    "did_emerge": {"type": "boolean", "description": "Whether emergence actually occurred"},
+                    "prediction_id": {"type": "string", "description": "Alias for pred_id"},
+                    "did_emerge": {"type": "boolean", "description": "REQUIRED: true if emergence occurred, false if not"},
+                    "emerged": {"type": "boolean", "description": "Alias for did_emerge"},
+                    "outcome": {"type": "string", "description": "Text description of what happened"},
                     "details": {"type": "string", "description": "What emerged (or why not)"}
                 },
-                "required": ["pred_id", "did_emerge"]
+                "required": []
             }
         ),
         Tool(
@@ -1552,17 +1557,18 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="resolve_claim",
-            description="Resolve a logged claim as correct/incorrect.",
+            description="Resolve a logged claim as correct/incorrect. Pass was_correct=true or was_correct=false.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "claim_id": {"type": "string"},
                     "claim_text": {"type": "string"},
-                    "was_correct": {"type": "boolean"},
+                    "was_correct": {"type": "boolean", "description": "REQUIRED: true if claim was correct, false if not"},
+                    "correct": {"type": "boolean", "description": "Alias for was_correct"},
                     "correction_source": {"type": "string"},
                     "correction_detail": {"type": "string"}
                 },
-                "required": ["was_correct"]
+                "required": []
             }
         ),
         
@@ -1758,15 +1764,17 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="jury_feedback",
-            description="Record ground truth feedback for MetaJudge training.",
+            description="Record ground truth feedback for MetaJudge training. Pass feedback_type: 'false_positive', 'false_negative', or 'confirmed'.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "memory_id": {"type": "string"},
-                    "feedback_type": {"type": "string", "enum": ["false_positive", "false_negative", "confirmed"]},
+                    "memory_id": {"type": "string", "description": "Memory ID to give feedback on"},
+                    "atom_id": {"type": "string", "description": "Alias for memory_id"},
+                    "feedback_type": {"type": "string", "enum": ["false_positive", "false_negative", "confirmed"], "description": "REQUIRED: false_positive, false_negative, or confirmed"},
+                    "correct": {"type": "boolean", "description": "Alternative: true→confirmed, false→false_positive"},
                     "details": {"type": "string"},
                 },
-                "required": ["memory_id", "feedback_type"]
+                "required": []
             }
         ),
         
@@ -2093,29 +2101,31 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="update_belief",
-            description="Update belief confidence with new evidence.",
+            description="Update belief confidence with new evidence. Pass confidence_delta (positive number) and evidence_type ('for' or 'against').",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "belief_id": {"type": "string"},
-                    "evidence_type": {"type": "string", "enum": ["for", "against"]},
+                    "evidence_type": {"type": "string", "enum": ["for", "against"], "description": "'for' or 'against'"},
                     "evidence_id": {"type": "string"},
-                    "confidence_delta": {"type": "number"},
+                    "confidence_delta": {"type": "number", "description": "Amount to adjust confidence"},
+                    "delta": {"type": "number", "description": "Alias for confidence_delta"},
                 },
-                "required": ["belief_id", "evidence_type", "confidence_delta"]
+                "required": ["belief_id"]
             }
         ),
         
         Tool(
             name="record_procedure_outcome",
-            description="Record if procedural memory worked. Success strengthens.",
+            description="Record if procedural memory worked. Pass success=true or success=false. Success strengthens the memory.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "procedure_id": {"type": "string"},
-                    "success": {"type": "boolean"},
+                    "success": {"type": "boolean", "description": "REQUIRED: true if procedure worked, false if not"},
+                    "worked": {"type": "boolean", "description": "Alias for success"},
                 },
-                "required": ["procedure_id", "success"]
+                "required": ["procedure_id"]
             }
         ),
         
@@ -3645,10 +3655,22 @@ async def handle_emergence_record_outcome(args: Dict[str, Any]) -> List[TextCont
     pred_id = args.get("pred_id") or args.get("prediction_id", "")
     if not pred_id:
         return [TextContent(type="text", text=compact_json({"error": "'pred_id' is required"}))]
+    # Resolve did_emerge from multiple possible params
+    did_emerge = args.get("did_emerge")
+    if did_emerge is None:
+        did_emerge = args.get("emerged")
+    if did_emerge is None:
+        # Infer from 'outcome' string if provided (e.g. "breakthrough" → True, "nothing" → False)
+        outcome_str = args.get("outcome", "")
+        if outcome_str:
+            did_emerge = outcome_str.lower() not in ("no", "false", "nothing", "none", "failed", "0")
+        else:
+            return [TextContent(type="text", text=compact_json({"error": "'did_emerge' (boolean) is required"}))]
+    details = args.get("details") or args.get("outcome", "")
     result = await emergence_detector.record_outcome(
         pred_id=pred_id,
-        did_emerge=bool(args.get("did_emerge", args.get("emerged", False))),
-        details=args.get("details", ""),
+        did_emerge=bool(did_emerge),
+        details=details,
     )
     return [TextContent(type="text", text=compact_json(result))]
 
@@ -5008,16 +5030,26 @@ async def handle_jury_feedback(args: Dict[str, Any]) -> List[TextContent]:
     if not memory_id:
         return [TextContent(type="text", text=compact_json({"error": "'memory_id' is required"}))]
     
+    # Resolve feedback_type from multiple possible params
+    feedback_type = args.get("feedback_type")
+    if not feedback_type:
+        # Derive from 'correct' boolean: true→confirmed, false→false_positive
+        correct = args.get("correct")
+        if correct is not None:
+            feedback_type = "confirmed" if bool(correct) else "false_positive"
+        else:
+            return [TextContent(type="text", text=compact_json({"error": "'feedback_type' is required: false_positive, false_negative, or confirmed"}))]
+    
     typed_memory_store.jury.record_feedback(
         memory_id=memory_id,
-        feedback_type=args["feedback_type"],
+        feedback_type=feedback_type,
         details=args.get("details", ""),
     )
     
     return [TextContent(type="text", text=compact_json({
         "status": "recorded",
         "memory_id": memory_id,
-        "feedback_type": args["feedback_type"],
+        "feedback_type": feedback_type,
         "adaptive_weights": typed_memory_store.jury.meta.get_adaptive_weights() if typed_memory_store.jury.meta else {},
     }))]
 
