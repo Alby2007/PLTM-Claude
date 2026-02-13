@@ -67,6 +67,7 @@ active_learning = None
 memory_index = None
 prefetch_engine = None
 contradiction_resolver = None
+emergence_detector = None
 _current_session_id = ""
 
 
@@ -214,7 +215,21 @@ async def initialize_pltm(custom_db_path: str = None):
     _reg.prefetch_engine = prefetch_engine
     _reg.contradiction_resolver = contradiction_resolver
     
-    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence + ΦRMS + analytics + learning + hierarchical)")
+    # Initialize Emergence Detector (MetaCriticalityObserver)
+    from src.meta.emergence_detector import MetaCriticalityObserver
+    global emergence_detector
+    emergence_detector = MetaCriticalityObserver(db_path)
+    # Pass in existing subsystems for metric measurement
+    _criticality = getattr(_reg, 'criticality', None)
+    _phi_calc = getattr(_reg, 'phi_calc', None)
+    _kg = getattr(_reg, 'knowledge_graph', None)
+    await emergence_detector.connect(
+        store=store, criticality=_criticality,
+        phi_calc=_phi_calc, knowledge_graph=_kg,
+    )
+    _reg.emergence_detector = emergence_detector
+    
+    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence + ΦRMS + analytics + learning + hierarchical + emergence)")
 
 
 # Create MCP server
@@ -988,6 +1003,53 @@ async def list_tools() -> List[Tool]:
                 },
                 "required": []
             }
+        ),
+        
+        # === EMERGENCE DETECTOR (MetaCriticalityObserver) ===
+        Tool(
+            name="emergence_observe",
+            description="Take a full observation of system criticality: measures r, Φ, dH/dt, bridges → computes emergence probability. Call periodically or after major knowledge changes.",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        Tool(
+            name="emergence_record_outcome",
+            description="After predicting emergence, record whether it actually happened. Triggers Bayesian weight update.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "pred_id": {"type": "string", "description": "Prediction ID from emergence_observe"},
+                    "did_emerge": {"type": "boolean", "description": "Whether emergence actually occurred"},
+                    "details": {"type": "string", "description": "What emerged (or why not)"}
+                },
+                "required": ["pred_id", "did_emerge"]
+            }
+        ),
+        Tool(
+            name="emergence_history",
+            description="Get recent emergence observations with trend analysis.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max observations (default 20)"}
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="emergence_predictions",
+            description="Get emergence predictions with outcomes and accuracy stats.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "include_pending": {"type": "boolean", "description": "Include pending predictions (default true)"}
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="emergence_dashboard",
+            description="Full emergence dashboard: current state + history + predictions + learned signatures. One-call summary.",
+            inputSchema={"type": "object", "properties": {}, "required": []}
         ),
         
         Tool(
@@ -2375,6 +2437,12 @@ def _build_dispatch_table():
         "memory_prefetch_stats": handle_memory_prefetch_stats,
         "auto_resolve_contradictions": handle_auto_resolve_contradictions,
         "get_unresolved_contradictions": handle_get_unresolved_contradictions,
+        # --- Emergence Detector ---
+        "emergence_observe": handle_emergence_observe,
+        "emergence_record_outcome": handle_emergence_record_outcome,
+        "emergence_history": handle_emergence_history,
+        "emergence_predictions": handle_emergence_predictions,
+        "emergence_dashboard": handle_emergence_dashboard,
         "learn_from_conversation": handle_learn_conversation,
         # --- PLTM 2.0 (inline) ---
         "quantum_add_state": handle_quantum_add,
@@ -3495,6 +3563,37 @@ async def handle_get_unresolved_contradictions(args: Dict[str, Any]) -> List[Tex
     result = await contradiction_resolver.get_unresolved(
         limit=int(args.get("limit", 20)),
     )
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+# ── Emergence Detector Handlers ──────────────────────────────────────────────
+
+async def handle_emergence_observe(args: Dict[str, Any]) -> List[TextContent]:
+    result = await emergence_detector.observe()
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_emergence_record_outcome(args: Dict[str, Any]) -> List[TextContent]:
+    result = await emergence_detector.record_outcome(
+        pred_id=args["pred_id"],
+        did_emerge=bool(args["did_emerge"]),
+        details=args.get("details", ""),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_emergence_history(args: Dict[str, Any]) -> List[TextContent]:
+    result = await emergence_detector.get_history(
+        limit=int(args.get("limit", 20)),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_emergence_predictions(args: Dict[str, Any]) -> List[TextContent]:
+    result = await emergence_detector.get_predictions(
+        include_pending=bool(args.get("include_pending", True)),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_emergence_dashboard(args: Dict[str, Any]) -> List[TextContent]:
+    result = await emergence_detector.get_dashboard()
     return [TextContent(type="text", text=compact_json(result))]
 
 
