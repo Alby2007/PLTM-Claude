@@ -64,6 +64,9 @@ trajectory_encoder = None
 handoff_protocol = None
 autonomous_learning = None
 active_learning = None
+memory_index = None
+prefetch_engine = None
+contradiction_resolver = None
 _current_session_id = ""
 
 
@@ -196,7 +199,22 @@ async def initialize_pltm(custom_db_path: str = None):
     _reg.autonomous_learning = autonomous_learning
     _reg.active_learning = active_learning
     
-    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence + ΦRMS + analytics + learning)")
+    # Initialize Hierarchical Memory + Prefetch + Contradiction Resolver
+    from src.memory.hierarchical_memory import (
+        HierarchicalMemoryIndex, PredictivePrefetchEngine, AutoContradictionResolver,
+    )
+    global memory_index, prefetch_engine, contradiction_resolver
+    memory_index = HierarchicalMemoryIndex(db_path)
+    await memory_index.connect(store)
+    prefetch_engine = PredictivePrefetchEngine(memory_index)
+    prefetch_engine.set_store(store)
+    contradiction_resolver = AutoContradictionResolver(db_path)
+    await contradiction_resolver.connect(store)
+    _reg.memory_index = memory_index
+    _reg.prefetch_engine = prefetch_engine
+    _reg.contradiction_resolver = contradiction_resolver
+    
+    logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence + ΦRMS + analytics + learning + hierarchical)")
 
 
 # Create MCP server
@@ -911,6 +929,62 @@ async def list_tools() -> List[Tool]:
                 "type": "object",
                 "properties": {
                     "limit": {"type": "integer", "description": "Max to return (default 10)"}
+                },
+                "required": []
+            }
+        ),
+        
+        # === HIERARCHICAL MEMORY + PREFETCH + CONTRADICTION RESOLVER ===
+        Tool(
+            name="memory_tree",
+            description="Get the hierarchical memory tree: domain→subtopic→count. Shows how memories are organized.",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        Tool(
+            name="memory_rebuild_index",
+            description="Rebuild the hierarchical memory index from all atoms. Run after bulk imports.",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        Tool(
+            name="memory_smart_retrieve",
+            description="Smart retrieval: classifies query→narrows to domain→returns relevant atoms. O(log n) instead of O(n).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "What to search for"},
+                    "top_k": {"type": "integer", "description": "Max results (default 20)"}
+                },
+                "required": ["query"]
+            }
+        ),
+        Tool(
+            name="memory_prefetch",
+            description="Predictive prefetch: predict next-needed domains from trajectory and preload into cache.",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        Tool(
+            name="memory_prefetch_stats",
+            description="Get prefetch cache stats: hit rate, cached domains, recent trajectory.",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        Tool(
+            name="auto_resolve_contradictions",
+            description="Scan for contradictions and auto-resolve using confidence+recency. Surfaces only ambiguous conflicts.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max conflicts to scan (default 200)"}
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="get_unresolved_contradictions",
+            description="Get contradictions that need manual review (couldn't be auto-resolved).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max to return (default 20)"}
                 },
                 "required": []
             }
@@ -2293,6 +2367,14 @@ def _build_dispatch_table():
         "propose_hypothesis": handle_propose_hypothesis,
         "submit_evidence": handle_submit_evidence,
         "get_hypotheses": handle_get_hypotheses,
+        # --- Hierarchical Memory + Prefetch + Contradictions ---
+        "memory_tree": handle_memory_tree,
+        "memory_rebuild_index": handle_memory_rebuild_index,
+        "memory_smart_retrieve": handle_memory_smart_retrieve,
+        "memory_prefetch": handle_memory_prefetch,
+        "memory_prefetch_stats": handle_memory_prefetch_stats,
+        "auto_resolve_contradictions": handle_auto_resolve_contradictions,
+        "get_unresolved_contradictions": handle_get_unresolved_contradictions,
         "learn_from_conversation": handle_learn_conversation,
         # --- PLTM 2.0 (inline) ---
         "quantum_add_state": handle_quantum_add,
@@ -3372,6 +3454,46 @@ async def handle_submit_evidence(args: Dict[str, Any]) -> List[TextContent]:
 async def handle_get_hypotheses(args: Dict[str, Any]) -> List[TextContent]:
     result = await active_learning.get_active_hypotheses(
         limit=int(args.get("limit", 10)),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+
+# ── Hierarchical Memory + Prefetch + Contradiction Handlers ──────────────────
+
+async def handle_memory_tree(args: Dict[str, Any]) -> List[TextContent]:
+    result = await memory_index.get_tree()
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_memory_rebuild_index(args: Dict[str, Any]) -> List[TextContent]:
+    result = await memory_index.rebuild_index()
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_memory_smart_retrieve(args: Dict[str, Any]) -> List[TextContent]:
+    # Record tool call for trajectory prediction
+    prefetch_engine.record_tool_call("memory_smart_retrieve")
+    result = await prefetch_engine.retrieve_smart(
+        query=args["query"],
+        top_k=int(args.get("top_k", 20)),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_memory_prefetch(args: Dict[str, Any]) -> List[TextContent]:
+    result = await prefetch_engine.prefetch()
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_memory_prefetch_stats(args: Dict[str, Any]) -> List[TextContent]:
+    result = prefetch_engine.get_stats()
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_auto_resolve_contradictions(args: Dict[str, Any]) -> List[TextContent]:
+    result = await contradiction_resolver.scan_and_resolve(
+        limit=int(args.get("limit", 200)),
+    )
+    return [TextContent(type="text", text=compact_json(result))]
+
+async def handle_get_unresolved_contradictions(args: Dict[str, Any]) -> List[TextContent]:
+    result = await contradiction_resolver.get_unresolved(
+        limit=int(args.get("limit", 20)),
     )
     return [TextContent(type="text", text=compact_json(result))]
 
