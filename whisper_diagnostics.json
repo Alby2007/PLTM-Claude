@@ -1,0 +1,704 @@
+{
+  "attempts": [
+    {
+      "timestamp": "2026-02-14T13:50:58.078369",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.9604165554046631,
+        "max": 0.7591978907585144,
+        "energy": 0.06635384261608124
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.066354 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:50:58.080929",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -1.0,
+        "max": 0.7904881238937378,
+        "energy": 0.06908860802650452
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:01.979602",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.7357651591300964,
+        "max": 0.957499086856842,
+        "energy": 0.05906112492084503
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.059061 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:01.981446",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.768423855304718,
+        "max": 1.0,
+        "energy": 0.061682701110839844
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:06.979640",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.6905747056007385,
+        "max": 0.8764806389808655,
+        "energy": 0.02756936103105545
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.027569 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:06.981794",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.7878949642181396,
+        "max": 1.0,
+        "energy": 0.03145461529493332
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:11.980015",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.4987066984176636,
+        "max": 0.6512146592140198,
+        "energy": 0.012978513725101948
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.012979 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:11.982687",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.7658100128173828,
+        "max": 1.0,
+        "energy": 0.019929705187678337
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:16.980012",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.025061288848519325,
+        "max": 0.030188942328095436,
+        "energy": 0.0009974244749173522
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000997 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:16.982235",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.8301479816436768,
+        "max": 1.0,
+        "energy": 0.0330393984913826
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:21.979769",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0054418547078967094,
+        "max": 0.0051230378448963165,
+        "energy": 0.0006165795493870974
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000617 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:21.981966",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -1.0,
+        "max": 0.941413938999176,
+        "energy": 0.11330319941043854
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:26.982425",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.6866416931152344,
+        "max": 0.6461122632026672,
+        "energy": 0.1057998314499855
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.105800 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:26.985289",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -1.0,
+        "max": 0.9409744143486023,
+        "energy": 0.1540830135345459
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:31.980489",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.677435040473938,
+        "max": 0.6882678866386414,
+        "energy": 0.08657720685005188
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.086577 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:31.984118",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.9842607378959656,
+        "max": 1.0,
+        "energy": 0.12578997015953064
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:36.979722",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.6281107664108276,
+        "max": 0.5357760190963745,
+        "energy": 0.07229149341583252
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.072291 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:36.982966",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -1.0,
+        "max": 0.8529960513114929,
+        "energy": 0.11509354412555695
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:41.984429",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.5671336054801941,
+        "max": 0.6712234020233154,
+        "energy": 0.03353732079267502
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.033537 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:41.992851",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.8449252843856812,
+        "max": 1.0,
+        "energy": 0.04996447265148163
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:46.980324",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.03764931485056877,
+        "max": 0.04703986272215843,
+        "energy": 0.0009672184241935611
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000967 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:46.984037",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.8003703951835632,
+        "max": 1.0,
+        "energy": 0.02056167647242546
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:51.980342",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.003365015145391226,
+        "max": 0.0036551188677549362,
+        "energy": 0.00015187218377832323
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000152 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:51.984841",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.9206308126449585,
+        "max": 1.0,
+        "energy": 0.04155054688453674
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Numpy is not available"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:56.979888",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:51:56.981282",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:01.980733",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:01.982516",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:06.979652",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:06.981184",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:11.980924",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:11.982673",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:16.980258",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:16.982054",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:21.980737",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:21.982465",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:26.979889",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:26.981478",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:31.980403",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:31.982264",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:36.980320",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:36.982239",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:41.981516",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:41.984076",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:46.980753",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:46.983181",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:51.980308",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:51.982214",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:56.980284",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T13:52:56.982021",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    }
+  ]
+}
