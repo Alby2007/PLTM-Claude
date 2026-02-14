@@ -30,11 +30,8 @@ class SensoryObservation:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
         return {
-            "timestamp": self.timestamp,
-            "modality": self.modality,
-            "data": self.data,
-            "confidence": self.confidence,
-            "age_seconds": self.age_seconds()
+            "mod": self.modality,
+            "data": self.data
         }
 
 
@@ -111,16 +108,9 @@ class SensoryBuffer:
         audio = self.get_current_audio()
         
         state = {
-            "timestamp": time.time(),
-            "visual": visual.to_dict() if visual else None,
-            "audio": audio.to_dict() if audio else None,
-            "cross_modal": self._compute_cross_modal_correlation(visual, audio),
-            "buffer_stats": {
-                "visual_count": len(self.visual_buffer),
-                "audio_count": len(self.audio_buffer),
-                "oldest_visual_age": self.visual_buffer[0].age_seconds() if self.visual_buffer else 0,
-                "oldest_audio_age": self.audio_buffer[0].age_seconds() if self.audio_buffer else 0,
-            }
+            "vis": visual.to_dict() if visual else None,
+            "aud": audio.to_dict() if audio else None,
+            "aligned": self._compute_cross_modal_correlation(visual, audio).get("aligned", False)
         }
         
         return state
@@ -182,13 +172,9 @@ class SensoryBuffer:
         audio_count = sum(1 for obs in history if obs.modality == "audio")
         
         return {
-            "duration_seconds": seconds,
             "events": events,
-            "visual_count": visual_count,
-            "audio_count": audio_count,
-            "temporal_density": len(history) / seconds,
-            "start_time": history[0].timestamp,
-            "end_time": history[-1].timestamp
+            "n_vis": visual_count,
+            "n_aud": audio_count
         }
     
     def clear(self) -> None:

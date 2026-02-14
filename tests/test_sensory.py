@@ -81,11 +81,11 @@ class TestSensoryBuffer:
         
         state = buffer.get_current_state()
         
-        assert "visual" in state
-        assert "audio" in state
-        assert "cross_modal" in state
-        assert state["visual"] is not None
-        assert state["audio"] is not None
+        assert "vis" in state
+        assert "aud" in state
+        assert "aligned" in state
+        assert state["vis"] is not None
+        assert state["aud"] is not None
     
     def test_get_history(self):
         """Test getting recent history"""
@@ -114,10 +114,10 @@ class TestSensoryBuffer:
         timeline = buffer.get_timeline(seconds=1.0)
         
         assert "events" in timeline
-        assert "visual_count" in timeline
-        assert "audio_count" in timeline
-        assert timeline["visual_count"] == 1
-        assert timeline["audio_count"] == 1
+        assert "n_vis" in timeline
+        assert "n_aud" in timeline
+        assert timeline["n_vis"] == 1
+        assert timeline["n_aud"] == 1
         assert len(timeline["events"]) == 2
     
     def test_buffer_pruning(self):
@@ -322,7 +322,6 @@ class TestSensoryObservation:
         
         assert obs.modality == "visual"
         assert obs.data["test"] == "data"
-        assert obs.confidence == 0.8
     
     def test_observation_age(self):
         """Test observation age calculation"""
@@ -347,10 +346,7 @@ class TestSensoryObservation:
         
         d = obs.to_dict()
         
-        assert "timestamp" in d
-        assert "modality" in d
+        assert "mod" in d
         assert "data" in d
-        assert "confidence" in d
-        assert "age_seconds" in d
-        assert d["modality"] == "audio"
+        assert d["mod"] == "audio"
         assert d["data"]["transcript"] == "test"

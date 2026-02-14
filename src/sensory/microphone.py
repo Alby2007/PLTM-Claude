@@ -169,13 +169,10 @@ class MicrophoneCapture:
         ambient = self._analyze_ambient(audio_chunk, energy)
         
         return {
-            "timestamp": time.time(),
-            "speech_detected": speech_detected,
-            "transcript": transcript,
-            "confidence": confidence,
-            "tone": tone,
-            "ambient": ambient,
-            "duration_seconds": self.chunk_duration
+            "ts": time.time(),
+            "speech": speech_detected,
+            "text": transcript,
+            "tone": tone
         }
     
     def _transcribe_audio(self, audio: np.ndarray) -> tuple[str, float]:
@@ -296,10 +293,8 @@ class MicrophoneCapture:
             sound_type = "high_frequency"  # Whistle, beep
         
         return {
-            "volume": volume,
-            "energy": float(energy),
-            "dominant_frequency_hz": float(dominant_freq),
-            "sound_type": sound_type
+            "vol": volume,
+            "type": sound_type
         }
     
     def __del__(self):

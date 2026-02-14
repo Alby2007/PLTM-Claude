@@ -3394,12 +3394,9 @@ async def handle_sensory_look(args: Dict[str, Any]) -> List[TextContent]:
         _sensory_buffer.add_visual(observation)
     
     return [TextContent(type="text", text=compact_json({
-        "modality": "visual",
-        "timestamp": observation["timestamp"],
-        "faces_detected": observation["faces_detected"],
+        "n_faces": observation["n_faces"],
         "faces": observation["faces"],
-        "scene": observation["scene"],
-        "age_seconds": time.time() - observation["timestamp"]
+        "scene": observation["scene"]["desc"]
     }))]
 
 
@@ -3424,14 +3421,9 @@ async def handle_sensory_listen(args: Dict[str, Any]) -> List[TextContent]:
         _sensory_buffer.add_audio(observation)
     
     return [TextContent(type="text", text=compact_json({
-        "modality": "audio",
-        "timestamp": observation["timestamp"],
-        "speech_detected": observation["speech_detected"],
-        "transcript": observation["transcript"],
-        "confidence": observation["confidence"],
-        "tone": observation["tone"],
-        "ambient": observation["ambient"],
-        "age_seconds": time.time() - observation["timestamp"]
+        "speech": observation["speech"],
+        "text": observation["text"],
+        "tone": observation["tone"]
     }))]
 
 

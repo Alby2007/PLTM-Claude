@@ -161,21 +161,18 @@ class CameraCapture:
             emotion = self._estimate_emotion(face_roi_gray, len(eyes))
             
             face_data.append({
-                "position": {"x": int(x), "y": int(y), "w": int(w), "h": int(h)},
-                "eyes_detected": len(eyes),
                 "emotion": emotion,
-                "confidence": 0.7
+                "conf": 0.7
             })
         
         # Scene analysis
         scene = self._analyze_scene(frame, gray)
         
         return {
-            "timestamp": time.time(),
-            "faces_detected": len(faces),
+            "ts": time.time(),
+            "n_faces": len(faces),
             "faces": face_data,
-            "scene": scene,
-            "frame_size": {"width": frame.shape[1], "height": frame.shape[0]}
+            "scene": scene
         }
     
     def _estimate_emotion(self, face_roi: np.ndarray, eyes_count: int) -> str:
@@ -240,12 +237,8 @@ class CameraCapture:
         description = self._describe_scene(brightness, contrast, motion_detected)
         
         return {
-            "brightness": float(brightness),
-            "contrast": float(contrast),
-            "motion_detected": motion_detected,
-            "motion_intensity": float(motion_intensity),
-            "dominant_colors": colors,
-            "description": description
+            "desc": description,
+            "motion": motion_detected
         }
     
     def _get_dominant_colors(self, frame: np.ndarray, n_colors: int = 3) -> List[str]:
