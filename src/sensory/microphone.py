@@ -153,23 +153,34 @@ class MicrophoneCapture:
         energy = np.mean(np.abs(audio_chunk))
         speech_detected = energy > 0.005  # Lowered threshold for better sensitivity
         
-        logger.debug(f"Audio energy: {energy:.4f}, speech_detected: {speech_detected}")
+        logger.info(f"Audio energy: {energy:.6f}, speech_detected: {speech_detected}")
         
-        # Always try to transcribe if any energy detected (Whisper handles silence well)
+        # Log energy to diagnostics even if we don't transcribe
+        WhisperDiagnostics.log_attempt(
+            audio_shape=audio_chunk.shape,
+            audio_dtype=str(audio_chunk.dtype),
+            audio_min=float(np.min(audio_chunk)),
+            audio_max=float(np.max(audio_chunk)),
+            energy=float(energy),
+            success=False,
+            error=f"Energy check: {energy:.6f} (threshold was 0.001, now removed)"
+        )
+        
+        # ALWAYS try to transcribe - remove energy threshold entirely
+        # Let Whisper decide if there's speech or not
         transcript = ""
         confidence = 0.0
         error = None
         
-        if energy > 0.001:  # Very low threshold - let Whisper decide
-            try:
-                transcript, confidence = self._transcribe_audio(audio_chunk)
-                if transcript:
-                    logger.info(f"Transcribed: '{transcript}' (conf: {confidence:.2f})")
-                else:
-                    logger.warning(f"Whisper returned empty transcript despite energy={energy:.4f}")
-            except Exception as e:
-                error = str(e)
-                logger.error(f"Transcription failed: {e}", exc_info=True)
+        try:
+            transcript, confidence = self._transcribe_audio(audio_chunk)
+            if transcript:
+                logger.info(f"Transcribed: '{transcript}' (conf: {confidence:.2f})")
+            else:
+                logger.warning(f"Whisper returned empty transcript (energy={energy:.6f})")
+        except Exception as e:
+            error = str(e)
+            logger.error(f"Transcription failed: {e}", exc_info=True)
         
         # Analyze tone/sentiment from transcript
         tone = self._analyze_tone(transcript) if transcript else "neutral"
