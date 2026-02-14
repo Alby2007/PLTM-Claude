@@ -219,26 +219,46 @@ class MicrophoneCapture:
                 return "", 0.0
             
             # Prepare audio for Whisper (expects 16kHz)
+            logger.debug(f"Processing audio: shape={audio.shape}, dtype={audio.dtype}, min={audio.min():.3f}, max={audio.max():.3f}")
+            
             input_features = self._whisper_processor(
                 audio,
                 sampling_rate=self.sample_rate,
                 return_tensors="pt"
             ).input_features
             
-            # Generate transcription
+            logger.debug(f"Input features shape: {input_features.shape}")
+            
+            # Generate transcription with forced English language
+            # Set forced_decoder_ids for language and task
+            forced_decoder_ids = self._whisper_processor.get_decoder_prompt_ids(
+                language="en",
+                task="transcribe"
+            )
+            
             predicted_ids = self._whisper_model.generate(
                 input_features,
-                max_length=448,  # Limit output length
-                num_beams=1,  # Faster greedy decoding
+                forced_decoder_ids=forced_decoder_ids,
+                max_length=448,
+                num_beams=1,
             )
+            
+            # Decode with and without special tokens to see what we get
+            transcription_raw = self._whisper_processor.batch_decode(predicted_ids)[0]
             transcription = self._whisper_processor.batch_decode(
                 predicted_ids,
                 skip_special_tokens=True
             )[0]
             
+            logger.debug(f"Whisper raw output: '{transcription_raw}'")
+            logger.debug(f"Whisper decoded: '{transcription}'")
+            
             # Filter out Whisper artifacts and empty results
             transcription = transcription.strip()
-            if transcription.lower() in ["", "you", "thank you", "thanks for watching"]:
+            
+            # Don't filter too aggressively - only truly empty or known artifacts
+            if not transcription or transcription.lower() in ["you", "thank you", "thanks for watching", ".", "..."]:
+                logger.debug(f"Filtered out artifact: '{transcription}'")
                 return "", 0.0
             
             # Simple confidence heuristic (length-based)
