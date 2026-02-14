@@ -157,13 +157,17 @@ class MicrophoneCapture:
         # Always try to transcribe if any energy detected (Whisper handles silence well)
         transcript = ""
         confidence = 0.0
+        error = None
         
         if energy > 0.001:  # Very low threshold - let Whisper decide
             try:
                 transcript, confidence = self._transcribe_audio(audio_chunk)
                 if transcript:
                     logger.info(f"Transcribed: '{transcript}' (conf: {confidence:.2f})")
+                else:
+                    logger.warning(f"Whisper returned empty transcript despite energy={energy:.4f}")
             except Exception as e:
+                error = str(e)
                 logger.error(f"Transcription failed: {e}", exc_info=True)
         
         # Analyze tone/sentiment from transcript
@@ -172,12 +176,17 @@ class MicrophoneCapture:
         # Ambient sound analysis
         ambient = self._analyze_ambient(audio_chunk, energy)
         
-        return {
+        result = {
             "ts": time.time(),
             "speech": speech_detected,
             "text": transcript,
             "tone": tone
         }
+        
+        if error:
+            result["error"] = error
+        
+        return result
     
     def _transcribe_audio(self, audio: np.ndarray) -> tuple[str, float]:
         """
@@ -256,10 +265,15 @@ class MicrophoneCapture:
             # Filter out Whisper artifacts and empty results
             transcription = transcription.strip()
             
-            # Don't filter too aggressively - only truly empty or known artifacts
-            if not transcription or transcription.lower() in ["you", "thank you", "thanks for watching", ".", "..."]:
-                logger.debug(f"Filtered out artifact: '{transcription}'")
+            # Return everything for debugging - don't filter yet
+            # We'll filter in the handler if needed
+            if not transcription:
+                logger.warning("Whisper returned completely empty transcription")
                 return "", 0.0
+            
+            # Log potential artifacts but still return them
+            if transcription.lower() in ["you", "thank you", "thanks for watching", ".", "..."]:
+                logger.info(f"Whisper returned potential artifact: '{transcription}' - returning anyway for debugging")
             
             # Simple confidence heuristic (length-based)
             confidence = min(0.9, len(transcription) / 50.0)
