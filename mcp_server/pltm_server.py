@@ -759,6 +759,18 @@ async def list_tools() -> List[Tool]:
         ),
         
         Tool(
+            name="sensory_diagnostics",
+            description="Get Whisper transcription diagnostics: shows recent transcription attempts with audio properties, success/failure, and actual output. Use this to debug why speech detection works but transcription is empty.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "count": {"type": "integer", "description": "Number of recent attempts to show (default: 10)"}
+                },
+                "required": []
+            }
+        ),
+        
+        Tool(
             name="learn_from_url",
             description="Learn from URL content. User must provide text in 'content' param.",
             inputSchema={
@@ -2491,6 +2503,7 @@ def _build_dispatch_table():
         "sensory_listen": handle_sensory_listen,
         "sensory_state": handle_sensory_state,
         "sensory_history": handle_sensory_history,
+        "sensory_diagnostics": handle_sensory_diagnostics,
         # --- Learning (inline) ---
         "learn_from_url": handle_learn_url,
         "learn_from_paper": handle_learn_paper,
@@ -3459,6 +3472,25 @@ async def handle_sensory_history(args: Dict[str, Any]) -> List[TextContent]:
     timeline = _sensory_buffer.get_timeline(seconds=seconds)
     
     return [TextContent(type="text", text=compact_json(timeline))]
+
+
+async def handle_sensory_diagnostics(args: Dict[str, Any]) -> List[TextContent]:
+    """Get Whisper transcription diagnostics"""
+    from src.sensory.whisper_diagnostics import WhisperDiagnostics
+    
+    count = args.get("count", 10)
+    attempts = WhisperDiagnostics.get_recent_attempts(n=count)
+    
+    if not attempts:
+        return [TextContent(type="text", text=compact_json({
+            "message": "No transcription attempts recorded yet. Speak and call sensory_listen to generate diagnostics.",
+            "attempts": []
+        }))]
+    
+    return [TextContent(type="text", text=compact_json({
+        "total_attempts": len(attempts),
+        "attempts": attempts
+    }))]
 
 
 async def handle_pltm_mode(args: Dict[str, Any]) -> List[TextContent]:

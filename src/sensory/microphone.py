@@ -17,6 +17,7 @@ import queue
 from io import BytesIO
 
 from loguru import logger
+from src.sensory.whisper_diagnostics import WhisperDiagnostics
 
 
 class MicrophoneCapture:
@@ -216,6 +217,15 @@ class MicrophoneCapture:
             # Validate audio length
             if len(audio) < 1600:  # Less than 0.1 seconds at 16kHz
                 logger.debug(f"Audio chunk too short: {len(audio)} samples")
+                WhisperDiagnostics.log_attempt(
+                    audio_shape=audio.shape,
+                    audio_dtype=str(audio.dtype),
+                    audio_min=float(np.min(audio)),
+                    audio_max=float(np.max(audio)),
+                    energy=float(np.mean(np.abs(audio))),
+                    success=False,
+                    error="Audio chunk too short"
+                )
                 return "", 0.0
             
             # Ensure audio is float32 and normalized
@@ -225,10 +235,21 @@ class MicrophoneCapture:
                 audio = audio / max_val  # Normalize to [-1, 1]
             else:
                 logger.debug("Audio chunk is silent (all zeros)")
+                WhisperDiagnostics.log_attempt(
+                    audio_shape=audio.shape,
+                    audio_dtype=str(audio.dtype),
+                    audio_min=0.0,
+                    audio_max=0.0,
+                    energy=0.0,
+                    success=False,
+                    error="Audio chunk is silent"
+                )
                 return "", 0.0
             
             # Prepare audio for Whisper (expects 16kHz)
             logger.debug(f"Processing audio: shape={audio.shape}, dtype={audio.dtype}, min={audio.min():.3f}, max={audio.max():.3f}")
+            
+            energy = float(np.mean(np.abs(audio)))
             
             input_features = self._whisper_processor(
                 audio,
@@ -265,6 +286,18 @@ class MicrophoneCapture:
             # Filter out Whisper artifacts and empty results
             transcription = transcription.strip()
             
+            # Log diagnostics
+            WhisperDiagnostics.log_attempt(
+                audio_shape=audio.shape,
+                audio_dtype=str(audio.dtype),
+                audio_min=float(audio.min()),
+                audio_max=float(audio.max()),
+                energy=energy,
+                success=True,
+                transcription=transcription,
+                raw_output=transcription_raw
+            )
+            
             # Return everything for debugging - don't filter yet
             # We'll filter in the handler if needed
             if not transcription:
@@ -282,6 +315,15 @@ class MicrophoneCapture:
             
         except Exception as e:
             logger.error(f"Whisper transcription error: {e}", exc_info=True)
+            WhisperDiagnostics.log_attempt(
+                audio_shape=audio.shape if 'audio' in locals() else (0,),
+                audio_dtype=str(audio.dtype) if 'audio' in locals() else "unknown",
+                audio_min=float(audio.min()) if 'audio' in locals() else 0.0,
+                audio_max=float(audio.max()) if 'audio' in locals() else 0.0,
+                energy=energy if 'energy' in locals() else 0.0,
+                success=False,
+                error=str(e)
+            )
             return "", 0.0
     
     def _analyze_tone(self, text: str) -> str:
