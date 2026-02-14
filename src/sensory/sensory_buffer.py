@@ -107,10 +107,13 @@ class SensoryBuffer:
         visual = self.get_current_visual()
         audio = self.get_current_audio()
         
+        correlation = self._compute_cross_modal_correlation(visual, audio)
+        
         state = {
             "vis": visual.to_dict() if visual else None,
             "aud": audio.to_dict() if audio else None,
-            "aligned": self._compute_cross_modal_correlation(visual, audio).get("aligned", False)
+            "aligned": correlation.get("aligned", False),
+            "coherence": correlation.get("coherence", 0.0)
         }
         
         return state
@@ -189,34 +192,69 @@ class SensoryBuffer:
         audio: Optional[SensoryObservation]
     ) -> Dict[str, Any]:
         """
-        Compute cross-modal correlations between visual and audio.
+        Compute correlation between visual and audio observations.
         
         Returns:
-            Dictionary with correlation metrics and aligned observations
+            Dictionary with correlation metrics including coherence score
         """
         if not visual or not audio:
-            return {"aligned": False, "time_delta": None}
+            return {"aligned": False, "time_delta": None, "coherence": 0.0}
         
+        # Temporal alignment
         time_delta = abs(visual.timestamp - audio.timestamp)
-        aligned = time_delta < 2.0  # Within 2 seconds = temporally aligned
+        aligned = time_delta < 2.0  # Within 2 seconds
+        
+        # Coherence score (0.0-1.0) based on multiple factors
+        coherence_score = 0.0
+        factors = 0
         
         correlation = {
             "aligned": aligned,
-            "time_delta": time_delta,
+            "time_delta": time_delta
         }
         
-        # Extract cross-modal patterns if aligned
+        # Factor 1: Temporal alignment
         if aligned:
-            visual_data = visual.data
-            audio_data = audio.data
+            coherence_score += 0.3
+        factors += 1
+        
+        # Factor 2: Emotion-tone alignment
+        visual_data = visual.data
+        audio_data = audio.data
+        
+        if "faces" in visual_data and visual_data["faces"]:
+            face = visual_data["faces"][0]
+            visual_emotion = face.get("emotion")
+            audio_tone = audio_data.get("tone")
             
-            # Example: face emotion + voice tone correlation
-            if "emotion" in visual_data and "tone" in audio_data:
-                correlation["emotion_tone_match"] = visual_data["emotion"] == audio_data["tone"]
-            
-            # Example: face detected + speech detected
-            if "faces_detected" in visual_data and "speech_detected" in audio_data:
-                correlation["face_and_speech"] = visual_data["faces_detected"] > 0 and audio_data["speech_detected"]
+            if visual_emotion and audio_tone:
+                # Emotion-tone matching
+                emotion_tone_match = (
+                    (visual_emotion in ["happy", "excited"] and audio_tone in ["positive", "excited"]) or
+                    (visual_emotion == "sad" and audio_tone == "negative") or
+                    (visual_emotion == "neutral" and audio_tone == "neutral") or
+                    (visual_emotion == "surprised" and audio_tone == "excited")
+                )
+                
+                if emotion_tone_match:
+                    coherence_score += 0.4
+                    correlation["emotion_tone_match"] = True
+                factors += 1
+        
+        # Factor 3: Face + speech co-occurrence
+        has_face = "faces" in visual_data and len(visual_data.get("faces", [])) > 0
+        has_speech = audio_data.get("speech", False)
+        
+        if has_face and has_speech:
+            coherence_score += 0.3
+            correlation["face_and_speech"] = True
+            factors += 1
+        
+        # Normalize coherence score
+        if factors > 0:
+            correlation["coherence"] = round(coherence_score, 2)
+        else:
+            correlation["coherence"] = 0.0
         
         return correlation
     

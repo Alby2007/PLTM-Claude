@@ -188,12 +188,18 @@ class MicrophoneCapture:
         # Ambient sound analysis
         ambient = self._analyze_ambient(audio_chunk, energy)
         
+        # Extract acoustic features if speech detected
+        acoustic = self._extract_acoustic_features(audio_chunk, energy) if speech_detected else None
+        
         result = {
             "ts": time.time(),
             "speech": speech_detected,
             "text": transcript,
             "tone": tone
         }
+        
+        if acoustic:
+            result["acoustic"] = acoustic
         
         if error:
             result["error"] = error
@@ -374,6 +380,57 @@ class MicrophoneCapture:
             return "curious"
         else:
             return "neutral"
+    
+    def _extract_acoustic_features(self, audio: np.ndarray, energy: float) -> Dict[str, Any]:
+        """
+        Extract compact acoustic features from audio.
+        
+        Returns:
+            Dictionary with pitch, speed, volume (token-efficient)
+        """
+        try:
+            # Volume (normalized 0-1)
+            volume = min(1.0, energy / 0.1)  # Scale to 0-1 range
+            
+            # Pitch estimation (simple zero-crossing rate)
+            # Higher ZCR = higher pitch
+            zero_crossings = np.sum(np.diff(np.sign(audio)) != 0)
+            zcr = zero_crossings / len(audio)
+            
+            # Map ZCR to pitch descriptor (compact string)
+            if zcr < 0.02:
+                pitch = "low"
+            elif zcr < 0.05:
+                pitch = "mid"
+            else:
+                pitch = "high"
+            
+            # Speed estimation from energy variance
+            # High variance = fast/dynamic speech
+            chunk_size = len(audio) // 10
+            if chunk_size > 0:
+                chunks = [audio[i:i+chunk_size] for i in range(0, len(audio), chunk_size)]
+                energies = [np.mean(np.abs(chunk)) for chunk in chunks if len(chunk) > 0]
+                variance = np.var(energies) if len(energies) > 1 else 0
+                
+                # Map to speed descriptor
+                if variance < 0.0001:
+                    speed = "steady"
+                elif variance < 0.001:
+                    speed = "moderate"
+                else:
+                    speed = "dynamic"
+            else:
+                speed = "steady"
+            
+            return {
+                "vol": round(volume, 2),
+                "pitch": pitch,
+                "speed": speed
+            }
+        except Exception as e:
+            logger.debug(f"Acoustic feature extraction failed: {e}")
+            return None
     
     def _analyze_ambient(self, audio: np.ndarray, energy: float) -> Dict[str, Any]:
         """
