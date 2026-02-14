@@ -690,6 +690,74 @@ async def list_tools() -> List[Tool]:
             }
         ),
         
+        # === SENSORY INPUT (Multimodal Perception) ===
+        Tool(
+            name="sensory_start",
+            description="Start camera and microphone capture. REQUIRES explicit user consent. Enables real-time multimodal perception.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "camera": {"type": "boolean", "description": "Enable camera (default: true)"},
+                    "microphone": {"type": "boolean", "description": "Enable microphone (default: true)"},
+                    "fps": {"type": "number", "description": "Camera FPS (default: 1.0)"}
+                },
+                "required": []
+            }
+        ),
+        
+        Tool(
+            name="sensory_stop",
+            description="Stop all sensory capture (camera + microphone). Releases hardware and clears buffer.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        
+        Tool(
+            name="sensory_look",
+            description="Get current visual snapshot: faces detected, emotions, scene description, objects.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        
+        Tool(
+            name="sensory_listen",
+            description="Get current audio snapshot: speech transcript, tone/sentiment, ambient sound.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        
+        Tool(
+            name="sensory_state",
+            description="Get unified multimodal state: current visual + audio + cross-modal correlations (e.g., face emotion + voice tone alignment).",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        ),
+        
+        Tool(
+            name="sensory_history",
+            description="Get recent sensory timeline: last N seconds of visual and audio observations with temporal patterns.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "seconds": {"type": "number", "description": "How far back to look (default: 10.0)"},
+                    "modality": {"type": "string", "enum": ["visual", "audio", "both"], "description": "Filter by modality (default: both)"}
+                },
+                "required": []
+            }
+        ),
+        
         Tool(
             name="learn_from_url",
             description="Learn from URL content. User must provide text in 'content' param.",
@@ -2416,6 +2484,13 @@ def _build_dispatch_table():
         "pltm_mode": handle_pltm_mode,
         "deep_personality_analysis": handle_deep_analysis,
         "enrich_claude_personality": handle_enrich_personality,
+        # --- Sensory Input (inline) ---
+        "sensory_start": handle_sensory_start,
+        "sensory_stop": handle_sensory_stop,
+        "sensory_look": handle_sensory_look,
+        "sensory_listen": handle_sensory_listen,
+        "sensory_state": handle_sensory_state,
+        "sensory_history": handle_sensory_history,
         # --- Learning (inline) ---
         "learn_from_url": handle_learn_url,
         "learn_from_paper": handle_learn_paper,
@@ -3212,6 +3287,186 @@ async def handle_check_pltm(args: Dict[str, Any]) -> List[TextContent]:
             "should_init": False,
             "error": str(e)
         }))]
+
+
+# === SENSORY HANDLERS ===
+
+# Global sensory system state
+_sensory_camera = None
+_sensory_microphone = None
+_sensory_buffer = None
+
+async def handle_sensory_start(args: Dict[str, Any]) -> List[TextContent]:
+    """Start camera and microphone capture"""
+    global _sensory_camera, _sensory_microphone, _sensory_buffer
+    
+    from src.sensory import CameraCapture, MicrophoneCapture, SensoryBuffer
+    
+    enable_camera = args.get("camera", True)
+    enable_microphone = args.get("microphone", True)
+    fps = args.get("fps", 1.0)
+    
+    # Initialize buffer if needed
+    if _sensory_buffer is None:
+        _sensory_buffer = SensoryBuffer(max_size=100, max_age_seconds=60.0)
+    
+    results = {"camera": False, "microphone": False, "errors": []}
+    
+    # Start camera
+    if enable_camera:
+        try:
+            if _sensory_camera is None:
+                _sensory_camera = CameraCapture(camera_id=0, fps=fps)
+            
+            if _sensory_camera.start():
+                results["camera"] = True
+            else:
+                results["errors"].append("Failed to start camera")
+        except Exception as e:
+            results["errors"].append(f"Camera error: {str(e)}")
+    
+    # Start microphone
+    if enable_microphone:
+        try:
+            if _sensory_microphone is None:
+                _sensory_microphone = MicrophoneCapture(sample_rate=16000, chunk_duration=5.0)
+            
+            if _sensory_microphone.start():
+                results["microphone"] = True
+            else:
+                results["errors"].append("Failed to start microphone")
+        except Exception as e:
+            results["errors"].append(f"Microphone error: {str(e)}")
+    
+    return [TextContent(type="text", text=compact_json({
+        "status": "started" if (results["camera"] or results["microphone"]) else "failed",
+        "camera_active": results["camera"],
+        "microphone_active": results["microphone"],
+        "errors": results["errors"],
+        "message": "Sensory capture started. Camera and microphone are now active." if not results["errors"] else "Some sensors failed to start."
+    }))]
+
+
+async def handle_sensory_stop(args: Dict[str, Any]) -> List[TextContent]:
+    """Stop all sensory capture"""
+    global _sensory_camera, _sensory_microphone, _sensory_buffer
+    
+    stopped = []
+    
+    if _sensory_camera:
+        _sensory_camera.stop()
+        _sensory_camera = None
+        stopped.append("camera")
+    
+    if _sensory_microphone:
+        _sensory_microphone.stop()
+        _sensory_microphone = None
+        stopped.append("microphone")
+    
+    if _sensory_buffer:
+        _sensory_buffer.clear()
+    
+    return [TextContent(type="text", text=compact_json({
+        "status": "stopped",
+        "stopped": stopped,
+        "message": f"Sensory capture stopped: {', '.join(stopped)}" if stopped else "No active sensors to stop"
+    }))]
+
+
+async def handle_sensory_look(args: Dict[str, Any]) -> List[TextContent]:
+    """Get current visual observation"""
+    global _sensory_camera, _sensory_buffer
+    
+    if not _sensory_camera or not _sensory_camera.running:
+        return [TextContent(type="text", text=compact_json({
+            "error": "Camera not active. Call sensory_start first."
+        }))]
+    
+    observation = _sensory_camera.get_current_observation()
+    
+    if not observation:
+        return [TextContent(type="text", text=compact_json({
+            "error": "No visual data available yet. Wait a moment and try again."
+        }))]
+    
+    # Store in buffer
+    if _sensory_buffer:
+        _sensory_buffer.add_visual(observation)
+    
+    return [TextContent(type="text", text=compact_json({
+        "modality": "visual",
+        "timestamp": observation["timestamp"],
+        "faces_detected": observation["faces_detected"],
+        "faces": observation["faces"],
+        "scene": observation["scene"],
+        "age_seconds": time.time() - observation["timestamp"]
+    }))]
+
+
+async def handle_sensory_listen(args: Dict[str, Any]) -> List[TextContent]:
+    """Get current audio observation"""
+    global _sensory_microphone, _sensory_buffer
+    
+    if not _sensory_microphone or not _sensory_microphone.running:
+        return [TextContent(type="text", text=compact_json({
+            "error": "Microphone not active. Call sensory_start first."
+        }))]
+    
+    observation = _sensory_microphone.get_current_observation()
+    
+    if not observation:
+        return [TextContent(type="text", text=compact_json({
+            "error": "No audio data available yet. Wait a moment and try again."
+        }))]
+    
+    # Store in buffer
+    if _sensory_buffer:
+        _sensory_buffer.add_audio(observation)
+    
+    return [TextContent(type="text", text=compact_json({
+        "modality": "audio",
+        "timestamp": observation["timestamp"],
+        "speech_detected": observation["speech_detected"],
+        "transcript": observation["transcript"],
+        "confidence": observation["confidence"],
+        "tone": observation["tone"],
+        "ambient": observation["ambient"],
+        "age_seconds": time.time() - observation["timestamp"]
+    }))]
+
+
+async def handle_sensory_state(args: Dict[str, Any]) -> List[TextContent]:
+    """Get unified multimodal state"""
+    global _sensory_buffer
+    
+    if not _sensory_buffer:
+        return [TextContent(type="text", text=compact_json({
+            "error": "Sensory buffer not initialized. Call sensory_start first."
+        }))]
+    
+    state = _sensory_buffer.get_current_state()
+    
+    return [TextContent(type="text", text=compact_json(state))]
+
+
+async def handle_sensory_history(args: Dict[str, Any]) -> List[TextContent]:
+    """Get recent sensory timeline"""
+    global _sensory_buffer
+    
+    if not _sensory_buffer:
+        return [TextContent(type="text", text=compact_json({
+            "error": "Sensory buffer not initialized. Call sensory_start first."
+        }))]
+    
+    seconds = args.get("seconds", 10.0)
+    modality = args.get("modality", "both")
+    
+    # Map "both" to None for buffer API
+    modality_filter = None if modality == "both" else modality
+    
+    timeline = _sensory_buffer.get_timeline(seconds=seconds)
+    
+    return [TextContent(type="text", text=compact_json(timeline))]
 
 
 async def handle_pltm_mode(args: Dict[str, Any]) -> List[TextContent]:

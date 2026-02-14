@@ -33,6 +33,9 @@ class AtomType(str, Enum):
     PERSONALITY_TRAIT = "personality_trait"        # Stable traits (humor, directness)
     COMMUNICATION_STYLE = "communication_style"    # Style preferences (concise, technical)
     INTERACTION_PATTERN = "interaction_pattern"    # Behavioral patterns (formal, casual)
+    
+    # Sensory grounding (multimodal perception)
+    SENSORY_OBSERVATION = "sensory_observation"    # Visual/audio perceptual data
 
 
 class GraphType(str, Enum):

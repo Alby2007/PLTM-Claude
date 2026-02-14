@@ -37,6 +37,8 @@ class SourceType(str, Enum):
     DOCUMENTATION = "documentation"
     BOOK = "book"
     NEWS = "news"
+    VISUAL = "visual"  # Camera/image sensory input
+    AUDIO = "audio"    # Microphone/audio sensory input
 
 
 @dataclass
