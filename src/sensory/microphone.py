@@ -150,17 +150,21 @@ class MicrophoneCapture:
         
         # Voice activity detection (simple energy-based)
         energy = np.mean(np.abs(audio_chunk))
-        speech_detected = energy > 0.01  # Threshold for speech vs silence
+        speech_detected = energy > 0.005  # Lowered threshold for better sensitivity
         
-        # Transcribe if speech detected
+        logger.debug(f"Audio energy: {energy:.4f}, speech_detected: {speech_detected}")
+        
+        # Always try to transcribe if any energy detected (Whisper handles silence well)
         transcript = ""
         confidence = 0.0
         
-        if speech_detected:
+        if energy > 0.001:  # Very low threshold - let Whisper decide
             try:
                 transcript, confidence = self._transcribe_audio(audio_chunk)
+                if transcript:
+                    logger.info(f"Transcribed: '{transcript}' (conf: {confidence:.2f})")
             except Exception as e:
-                logger.debug(f"Transcription failed: {e}")
+                logger.error(f"Transcription failed: {e}", exc_info=True)
         
         # Analyze tone/sentiment from transcript
         tone = self._analyze_tone(transcript) if transcript else "neutral"
@@ -194,12 +198,26 @@ class MicrophoneCapture:
                 self._whisper_processor = WhisperProcessor.from_pretrained(model_name)
                 self._whisper_model = WhisperForConditionalGeneration.from_pretrained(model_name)
                 
-                logger.info("Whisper model loaded")
+                logger.info("Whisper model loaded successfully")
             except Exception as e:
                 logger.error(f"Failed to load Whisper: {e}")
                 return "", 0.0
         
         try:
+            # Validate audio length
+            if len(audio) < 1600:  # Less than 0.1 seconds at 16kHz
+                logger.debug(f"Audio chunk too short: {len(audio)} samples")
+                return "", 0.0
+            
+            # Ensure audio is float32 and normalized
+            audio = audio.astype(np.float32)
+            max_val = np.max(np.abs(audio))
+            if max_val > 0:
+                audio = audio / max_val  # Normalize to [-1, 1]
+            else:
+                logger.debug("Audio chunk is silent (all zeros)")
+                return "", 0.0
+            
             # Prepare audio for Whisper (expects 16kHz)
             input_features = self._whisper_processor(
                 audio,
@@ -208,19 +226,28 @@ class MicrophoneCapture:
             ).input_features
             
             # Generate transcription
-            predicted_ids = self._whisper_model.generate(input_features)
+            predicted_ids = self._whisper_model.generate(
+                input_features,
+                max_length=448,  # Limit output length
+                num_beams=1,  # Faster greedy decoding
+            )
             transcription = self._whisper_processor.batch_decode(
                 predicted_ids,
                 skip_special_tokens=True
             )[0]
             
-            # Simple confidence heuristic (length-based)
-            confidence = min(0.9, len(transcription) / 100.0)
+            # Filter out Whisper artifacts and empty results
+            transcription = transcription.strip()
+            if transcription.lower() in ["", "you", "thank you", "thanks for watching"]:
+                return "", 0.0
             
-            return transcription.strip(), confidence
+            # Simple confidence heuristic (length-based)
+            confidence = min(0.9, len(transcription) / 50.0)
+            
+            return transcription, confidence
             
         except Exception as e:
-            logger.debug(f"Whisper transcription error: {e}")
+            logger.error(f"Whisper transcription error: {e}", exc_info=True)
             return "", 0.0
     
     def _analyze_tone(self, text: str) -> str:
