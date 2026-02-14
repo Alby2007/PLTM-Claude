@@ -1,37 +1,116 @@
-# Core
-pydantic==2.10.3
-pydantic-settings==2.6.1
-python-dotenv==1.0.1
-
-# API
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-
-# Grammar-constrained generation
-outlines>=0.1.12
-
-# ML Models
-transformers==4.47.1
+absl-py==2.3.1
+aiodns==3.6.1
+aiohappyeyeballs==2.6.1
+aiohttp==3.13.3
+aiosignal==1.4.0
+altgraph @ file:///AppleInternal/Library/BuildRoots/39d9dc1a-2111-11f0-be06-226177e5bb69/Library/Caches/com.apple.xbs/Sources/python3/altgraph-0.17.2-py2.py3-none-any.whl
+APScheduler==3.10.4
+asttokens==3.0.0
+async-timeout==5.0.1
+attrs==25.4.0
+blinker==1.9.0
+ccxt==4.2.25
+certifi==2025.8.3
+cffi==2.0.0
+charset-normalizer==3.4.2
+click==8.1.8
+cloudpickle==3.1.2
+contourpy==1.3.0
+cryptography==46.0.3
+cycler==0.12.1
+decorator==5.2.1
+etils==1.5.2
+exceptiongroup==1.3.0
+executing==2.2.0
+Farama-Notifications==0.0.4
+filelock==3.18.0
+Flask==3.1.2
+flask-cors==6.0.1
+fonttools==4.60.2
+frozenlist==1.8.0
+fsspec==2025.10.0
+future @ file:///AppleInternal/Library/BuildRoots/39d9dc1a-2111-11f0-be06-226177e5bb69/Library/Caches/com.apple.xbs/Sources/python3/future-0.18.2-py3-none-any.whl
+git-filter-repo==2.47.0
+glfw==2.10.0
+grpcio==1.76.0
+gymnasium==1.0.0
+hf-xet==1.1.7
+huggingface-hub==0.34.3
+idna==3.10
+importlib_metadata==8.7.0
+importlib_resources==6.5.2
+iniconfig==2.1.0
+isodate==0.7.2
+itsdangerous==2.2.0
+jedi==0.19.2
+Jinja2==3.1.6
+joblib==1.5.1
+jupyter_core==5.8.1
+kiwisolver==1.4.7
+macholib @ file:///AppleInternal/Library/BuildRoots/39d9dc1a-2111-11f0-be06-226177e5bb69/Library/Caches/com.apple.xbs/Sources/python3/macholib-1.15.2-py2.py3-none-any.whl
+Markdown==3.9
+MarkupSafe==3.0.2
+matplotlib==3.9.4
+matplotlib-inline==0.1.7
+mpmath==1.3.0
+mujoco==3.2.3
+multidict==6.7.0
+networkx==3.2.1
+numpy==1.26.3
+opencv-python-headless==4.9.0.80
+packaging==25.0
+pandas==2.1.4
+parso==0.8.4
+pexpect==4.9.0
+pillow==11.3.0
+platformdirs==4.3.8
+pluggy==1.6.0
+prompt_toolkit==3.0.51
+propcache==0.4.1
+protobuf==6.33.2
+psycopg2-binary==2.9.9
+ptyprocess==0.7.0
+pure_eval==0.2.3
+pycares==4.11.0
+pycparser==2.23
+pygame==2.5.2
+Pygments==2.19.2
+PyOpenGL==3.1.10
+pyparsing==3.3.1
+PyQt6==6.9.1
+PyQt6-Qt6==6.9.1
+PyQt6_sip==13.10.2
+pytest==7.4.3
+python-dateutil==2.9.0.post0
+python-dotenv==1.0.0
+pytz==2025.2
+PyYAML==6.0.1
+pyzmq==27.0.1
+rdflib==7.5.0
+regex==2025.7.34
+requests==2.32.4
+safetensors==0.6.1
+scipy==1.13.1
+shapely==2.0.1
+six @ file:///AppleInternal/Library/BuildRoots/39d9dc1a-2111-11f0-be06-226177e5bb69/Library/Caches/com.apple.xbs/Sources/python3/six-1.15.0-py2.py3-none-any.whl
+stable_baselines3==2.4.1
+stack-data==0.6.3
+sympy==1.14.0
+tensorboard==2.20.0
+tensorboard-data-server==0.7.2
+threadpoolctl==3.6.0
+tokenizers==0.21.4
+tomli==2.4.0
 torch==2.2.2
-accelerate==1.2.1
-
-# Storage
-aiosqlite==0.20.0
-asyncpg==0.30.0  # PostgreSQL async driver for pgvector
-
-# Vector Embeddings
-sentence-transformers==3.3.1  # Semantic embeddings
-numpy==1.26.4  # Vector operations
-
-# Utilities
-loguru==0.7.3
-
-# Testing
-pytest==8.3.4
-pytest-asyncio==0.24.0
-pytest-cov==6.0.0
-
-# Development
-black==24.10.0
-ruff==0.8.4
-mypy==1.13.0
+tornado==6.5.1
+tqdm==4.67.1
+traitlets==5.14.3
+typing-inspection==0.4.1
+typing_extensions==4.15.0
+tzdata==2025.2
+tzlocal==5.3.1
+urllib3==2.5.0
+wcwidth==0.2.13
+Werkzeug==3.1.3
+yarl==1.22.0
+zipp==3.23.0

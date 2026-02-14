@@ -1,704 +1,704 @@
 {
   "attempts": [
     {
-      "timestamp": "2026-02-14T14:01:38.303009",
+      "timestamp": "2026-02-14T14:15:52.590378",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.19081459939479828,
-        "max": 0.17007030546665192,
-        "energy": 0.0005707896780222654
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000571 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:01:38.540001",
+      "timestamp": "2026-02-14T14:15:52.591897",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.8912855982780457,
-        "energy": 0.002991330809891224
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:01:43.303319",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.05844014137983322,
-        "max": 0.04164909943938255,
-        "energy": 0.00040159901254810393
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000402 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:01:44.122205",
+      "timestamp": "2026-02-14T14:15:57.590478",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.7126796245574951,
-        "energy": 0.006871971767395735
-      },
-      "success": true,
-      "transcription": "I'm going to put the other side of the pan.",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> I'm going to put the other side of the pan.",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:01:48.303686",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.004951282404363155,
-        "max": 0.004831209313124418,
-        "energy": 0.0003369817277416587
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000337 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:01:48.710315",
+      "timestamp": "2026-02-14T14:15:57.591827",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.9757490754127502,
-        "energy": 0.06805948913097382
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:01:53.304225",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.014819270931184292,
-        "max": 0.013841903768479824,
-        "energy": 0.00037190961302258074
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000372 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:01:53.833447",
+      "timestamp": "2026-02-14T14:16:02.591934",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.9340475797653198,
-        "energy": 0.0250963494181633
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:01:58.303262",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.0220847949385643,
-        "max": 0.025076478719711304,
-        "energy": 0.0005939897964708507
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000594 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:01:58.585392",
+      "timestamp": "2026-02-14T14:16:02.593808",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.8806976079940796,
-        "max": 1.0,
-        "energy": 0.023687129840254784
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:03.303780",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.08269757777452469,
-        "max": 0.09919819235801697,
-        "energy": 0.0005675702705048025
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000568 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:02:03.613858",
+      "timestamp": "2026-02-14T14:16:07.591420",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.8336601257324219,
-        "max": 1.0,
-        "energy": 0.005721578374505043
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:08.303308",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.07401801645755768,
-        "max": 0.08801072090864182,
-        "energy": 0.0005728999385610223
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000573 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:02:08.625852",
+      "timestamp": "2026-02-14T14:16:07.593190",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.8410113453865051,
-        "max": 1.0,
-        "energy": 0.006509433034807444
-      },
-      "success": true,
-      "transcription": "I'm gonna do it.",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> I'm gonna do it.",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:13.303571",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.01608850434422493,
-        "max": 0.020349767059087753,
-        "energy": 0.00045994867105036974
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000460 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:02:13.582614",
+      "timestamp": "2026-02-14T14:16:12.592053",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.7905989289283752,
-        "max": 1.0,
-        "energy": 0.022602161392569542
-      },
-      "success": true,
-      "transcription": "Okay.",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> Okay.",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:18.303921",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.03076404333114624,
-        "max": 0.039401981979608536,
-        "energy": 0.00046135863522067666
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000461 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:02:18.855812",
+      "timestamp": "2026-02-14T14:16:12.593911",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.7807739973068237,
-        "max": 1.0,
-        "energy": 0.011709019541740417
-      },
-      "success": true,
-      "transcription": "I'm going to put the other one on the other side.",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> I'm going to put the other one on the other side.",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:23.304971",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.02003859542310238,
-        "max": 0.03604414686560631,
-        "energy": 0.0005279986653476954
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000528 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:02:23.619903",
+      "timestamp": "2026-02-14T14:16:17.591775",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.555945873260498,
-        "max": 1.0,
-        "energy": 0.014648666605353355
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:28.305622",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.003683965653181076,
-        "max": 0.003287095809355378,
-        "energy": 0.00034073242568410933
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000341 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:02:28.898700",
+      "timestamp": "2026-02-14T14:16:17.593566",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.8922710418701172,
-        "energy": 0.09249066561460495
-      },
-      "success": true,
-      "transcription": "I'm going to put the water in the water.",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> I'm going to put the water in the water.",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:33.303466",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.001927308039739728,
-        "max": 0.0018642412032932043,
-        "energy": 0.0003140392655041069
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000314 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:02:33.614829",
+      "timestamp": "2026-02-14T14:16:22.591778",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.9672772288322449,
-        "energy": 0.16294191777706146
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:38.373287",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.0016745679313316941,
-        "max": 0.0017763491487130523,
-        "energy": 0.00031507652602158487
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000315 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:02:38.771101",
+      "timestamp": "2026-02-14T14:16:22.593580",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.9427019953727722,
-        "max": 1.0,
-        "energy": 0.17737308144569397
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:43.372629",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.0017191095976158977,
-        "max": 0.0017911718459799886,
-        "energy": 0.00031360285356640816
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000314 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:02:43.780216",
+      "timestamp": "2026-02-14T14:16:27.591822",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.9597681164741516,
-        "max": 1.0,
-        "energy": 0.1750824898481369
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:48.373225",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.00163940095808357,
-        "max": 0.0016941011417657137,
-        "energy": 0.0003135462466161698
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000314 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:02:48.713775",
+      "timestamp": "2026-02-14T14:16:27.593655",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.9677113890647888,
-        "max": 1.0,
-        "energy": 0.18508118391036987
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:53.373147",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.005746139213442802,
-        "max": 0.006703655701130629,
-        "energy": 0.0004711799556389451
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000471 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:02:53.673276",
+      "timestamp": "2026-02-14T14:16:32.591408",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.8571650385856628,
-        "max": 1.0,
-        "energy": 0.07028701156377792
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:02:58.373274",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.003898350289091468,
-        "max": 0.0039732870645821095,
-        "energy": 0.0004103879036847502
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000410 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:02:58.729200",
+      "timestamp": "2026-02-14T14:16:32.593200",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.9811398386955261,
-        "max": 1.0,
-        "energy": 0.1032867431640625
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:03:03.373618",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.0029617510735988617,
-        "max": 0.0027082720771431923,
-        "energy": 0.0003352594212628901
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000335 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:03:03.731746",
+      "timestamp": "2026-02-14T14:16:37.592476",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.9144158363342285,
-        "energy": 0.11319636553525925
-      },
-      "success": true,
-      "transcription": "the",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> the",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:03:08.373025",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.004220072645694017,
-        "max": 0.005217755679041147,
-        "energy": 0.000384512881282717
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000385 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:03:08.944233",
+      "timestamp": "2026-02-14T14:16:37.594318",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.8087907433509827,
-        "max": 1.0,
-        "energy": 0.07369314134120941
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:03:13.373310",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.006075995974242687,
-        "max": 0.00629294291138649,
-        "energy": 0.0004892891738563776
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000489 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:03:13.663080",
+      "timestamp": "2026-02-14T14:16:42.591766",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.9655253887176514,
-        "max": 1.0,
-        "energy": 0.07775205373764038
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:03:18.373108",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.2283983677625656,
-        "max": 0.25113266706466675,
-        "energy": 0.0004276336112525314
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000428 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:03:18.655616",
+      "timestamp": "2026-02-14T14:16:42.593757",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.9094729423522949,
-        "max": 1.0,
-        "energy": 0.0017028194852173328
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:03:23.373865",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.008031540550291538,
-        "max": 0.010046175681054592,
-        "energy": 0.0003266587445978075
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000327 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:03:23.705709",
+      "timestamp": "2026-02-14T14:16:47.593421",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.7994624972343445,
-        "max": 1.0,
-        "energy": 0.03251573070883751
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:03:28.373175",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.00187577772885561,
-        "max": 0.0019760536961257458,
-        "energy": 0.0003254693001508713
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000325 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:03:28.655435",
+      "timestamp": "2026-02-14T14:16:47.595422",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -0.9492544531822205,
-        "max": 1.0,
-        "energy": 0.16470670700073242
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:03:33.373746",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.004115999676287174,
-        "max": 0.0024734169710427523,
-        "energy": 0.0003269721637479961
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000327 (threshold was 0.001, now removed)"
+      "error": "Audio chunk is silent"
     },
     {
-      "timestamp": "2026-02-14T14:03:33.677058",
+      "timestamp": "2026-02-14T14:16:52.591692",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.6009274125099182,
-        "energy": 0.07943931221961975
-      },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
-    },
-    {
-      "timestamp": "2026-02-14T14:03:38.373502",
-      "audio": {
-        "shape": "(80000,)",
-        "dtype": "float32",
-        "min": -0.07157647609710693,
-        "max": 0.06127412989735603,
-        "energy": 0.0006012609810568392
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
       },
       "success": false,
       "transcription": "",
       "raw_output": "",
-      "error": "Energy check: 0.000601 (threshold was 0.001, now removed)"
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
     },
     {
-      "timestamp": "2026-02-14T14:03:38.664671",
+      "timestamp": "2026-02-14T14:16:52.593535",
       "audio": {
         "shape": "(80000,)",
         "dtype": "float32",
-        "min": -1.0,
-        "max": 0.8560652136802673,
-        "energy": 0.008400259539484978
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
       },
-      "success": true,
-      "transcription": "you",
-      "raw_output": "<|startoftranscript|><|en|><|transcribe|><|notimestamps|> you",
-      "error": ""
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:16:57.591755",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:16:57.593608",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:02.592669",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:02.594590",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:07.592095",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:07.593956",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:12.591815",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:12.593661",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:17.591651",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:17.593411",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:22.591034",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:22.592525",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:27.591174",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:27.592643",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:32.592457",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:32.594321",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:37.592145",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:37.594012",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:42.592515",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:42.594498",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:47.592035",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:47.593778",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:52.592166",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": -0.0,
+        "max": -0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Energy check: 0.000000 (threshold was 0.001, now removed)"
+    },
+    {
+      "timestamp": "2026-02-14T14:17:52.594226",
+      "audio": {
+        "shape": "(80000,)",
+        "dtype": "float32",
+        "min": 0.0,
+        "max": 0.0,
+        "energy": 0.0
+      },
+      "success": false,
+      "transcription": "",
+      "raw_output": "",
+      "error": "Audio chunk is silent"
     }
   ]
 }
