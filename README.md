@@ -15,12 +15,12 @@ An MCP server that gives Claude Desktop persistent memory, self-awareness, epist
 
 **macOS / Linux:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Alby2007/PLTM-Claude/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Alby2007/PLTM-Claude-repost-/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/Alby2007/PLTM-Claude/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Alby2007/PLTM-Claude-repost-/main/install.ps1 | iex
 ```
 
 **Then restart Claude Desktop** — 178 tools ready.
@@ -37,7 +37,7 @@ That's it. The installer clones the repo, creates a venv, installs deps, downloa
 <summary><strong>Alternative: manual clone + setup</strong></summary>
 
 ```bash
-git clone https://github.com/Alby2007/PLTM-Claude.git && cd PLTM-Claude
+git clone https://github.com/Alby2007/PLTM-Claude-repost-.git && cd PLTM-Claude-repost-
 python setup_pltm.py
 ```
 
@@ -55,8 +55,8 @@ Flags:
 <summary><strong>Fully manual setup</strong></summary>
 
 ```bash
-git clone https://github.com/Alby2007/PLTM-Claude.git
-cd PLTM-Claude
+git clone https://github.com/Alby2007/PLTM-Claude-repost-.git
+cd PLTM-Claude-repost-
 python3.11 -m venv .venv
 source .venv/bin/activate        # macOS/Linux
 # .venv\Scripts\activate         # Windows
@@ -76,10 +76,27 @@ Then edit your Claude Desktop config:
 {
   "mcpServers": {
     "pltm": {
-      "command": "/path/to/PLTM-Claude/.venv/bin/python3",
+      "command": "/path/to/PLTM-Claude-repost-/.venv/bin/python3",
       "args": ["-m", "mcp_server.pltm_server"],
       "env": {
-        "PYTHONPATH": "/path/to/PLTM-Claude",
+        "PYTHONPATH": "/path/to/PLTM-Claude-repost-",
+        "GROQ_API_KEY": "your-groq-key"
+      }
+    }
+  }
+}
+```
+
+**Windows equivalent** (note `.venv\Scripts\python.exe` and forward slashes):
+
+```json
+{
+  "mcpServers": {
+    "pltm": {
+      "command": "C:/path/to/PLTM-Claude-repost-/.venv/Scripts/python.exe",
+      "args": ["-m", "mcp_server.pltm_server"],
+      "env": {
+        "PYTHONPATH": "C:/path/to/PLTM-Claude-repost-",
         "GROQ_API_KEY": "your-groq-key"
       }
     }

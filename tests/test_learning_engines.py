@@ -75,8 +75,13 @@ class TestAutonomousLearningEngine:
     @pytest.mark.asyncio
     async def test_run_due_tasks_none_due(self, engine):
         """No tasks should be due immediately after seeding (last_run=0 means all due)."""
-        # All tasks have last_run_at=0, so they're all due
-        result = await engine.run_due_tasks()
+        import urllib.error
+        # All tasks have last_run_at=0, so they're all due.
+        # Block real network: arxiv/github/news tasks all go through
+        # urllib.request.urlopen and handle failures gracefully per-task.
+        with patch("urllib.request.urlopen",
+                   side_effect=urllib.error.URLError("mocked: no network in tests")):
+            result = await engine.run_due_tasks()
         assert result["ok"]
         # They'll fail because no store/network, but should attempt
         assert result["checked"] >= 5

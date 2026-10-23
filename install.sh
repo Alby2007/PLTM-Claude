@@ -1,6 +1,6 @@
 #!/bin/bash
 # PLTM — One-line installer for macOS/Linux
-# Usage: curl -fsSL https://raw.githubusercontent.com/Alby2007/PLTM-Claude/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/Alby2007/PLTM-Claude-repost-/main/install.sh | bash
 set -e
 
 echo ""
@@ -40,7 +40,7 @@ if [ -d "$INSTALL_DIR" ]; then
     git pull --quiet
 else
     echo "  Cloning PLTM..."
-    git clone --quiet https://github.com/Alby2007/PLTM-Claude.git "$INSTALL_DIR"
+    git clone --quiet https://github.com/Alby2007/PLTM-Claude-repost-.git "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 

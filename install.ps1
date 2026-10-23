@@ -1,5 +1,5 @@
 # PLTM — One-line installer for Windows
-# Usage: irm https://raw.githubusercontent.com/Alby2007/PLTM-Claude/main/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/Alby2007/PLTM-Claude-repost-/main/install.ps1 | iex
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
@@ -36,7 +36,7 @@ if (Test-Path $InstallDir) {
     git pull --quiet
 } else {
     Write-Host "  Cloning PLTM..."
-    git clone --quiet https://github.com/Alby2007/PLTM-Claude.git $InstallDir
+    git clone --quiet https://github.com/Alby2007/PLTM-Claude-repost-.git $InstallDir
     Set-Location $InstallDir
 }
 

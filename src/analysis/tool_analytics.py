@@ -12,7 +12,7 @@ import hashlib
 import json
 import sqlite3
 import time
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -31,6 +31,7 @@ class ToolAnalytics:
     def __init__(self, db_path: Optional[Path] = None):
         self.db_path = db_path or Path(__file__).parent.parent.parent / "data" / "pltm_mcp.db"
         self._current_sequences: Dict[str, List[str]] = {}  # session_id → [tool_names]
+        self._pending: deque = deque(maxlen=1000)  # rows buffered on lock contention
         self._ensure_tables()
 
     def _ensure_tables(self):
@@ -83,24 +84,31 @@ class ToolAnalytics:
 
         Short busy timeout: this runs synchronously inside the event loop —
         a held lock must fail fast, not stall every tool call for 5s.
+        Failed writes are buffered in ``_pending`` and flushed on the next
+        successful call, so transient contention costs no rows.
         """
+        # Track sequence (in-memory — independent of the DB write)
+        if session_id:
+            self._current_sequences.setdefault(session_id, []).append(tool_name)
+
+        row = (tool_name, session_id, time.time(), duration_ms,
+               1 if success else 0, error_type, args_hash, result_size)
         try:
             conn = sqlite3.connect(str(self.db_path), timeout=0.2)
-            conn.execute(
+            batch = list(self._pending)
+            batch.append(row)
+            conn.executemany(
                 """INSERT INTO tool_invocations
                    (tool_name, session_id, timestamp, duration_ms, success, error_type, args_hash, result_size)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (tool_name, session_id, time.time(), duration_ms,
-                 1 if success else 0, error_type, args_hash, result_size),
+                batch,
             )
             conn.commit()
             conn.close()
-
-            # Track sequence
-            if session_id:
-                self._current_sequences.setdefault(session_id, []).append(tool_name)
+            self._pending.clear()
         except Exception as e:
-            logger.debug(f"ToolAnalytics.log_invocation failed: {e}")
+            logger.debug(f"ToolAnalytics.log_invocation failed ({len(self._pending)} queued): {e}")
+            self._pending.append(row)
 
     def end_session(self, session_id: str):
         """Flush the accumulated tool sequence for a session."""
@@ -108,7 +116,7 @@ class ToolAnalytics:
         if not seq:
             return
         try:
-            conn = sqlite3.connect(str(self.db_path))
+            conn = sqlite3.connect(str(self.db_path), timeout=2)
             conn.execute(
                 "INSERT INTO tool_sequences (session_id, sequence, length, timestamp) VALUES (?, ?, ?, ?)",
                 (session_id, json.dumps(seq), len(seq), time.time()),

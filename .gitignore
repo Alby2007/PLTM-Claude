@@ -41,9 +41,9 @@ ENV/
 *.db-wal
 *.db-shm
 
-# Allow the PLTM knowledge base DB to be tracked (in data/ only)
+# Local knowledge base DB — personal data, auto-created on first run.
+# Untrack with: git rm --cached data/pltm_mcp.db
 !data/
-!data/pltm_mcp.db
 data/*.bak.*
 pltm_mcp.db
 
