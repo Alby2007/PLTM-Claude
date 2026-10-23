@@ -45,7 +45,7 @@ class PhiIntegrationCalculator:
     
     def _ensure_tables(self):
         """Create phi_snapshots table for timeseries tracking"""
-        conn = sqlite3.connect(str(self.db_path))
+        conn = sqlite3.connect(str(self.db_path), timeout=2)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS phi_snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,7 +188,7 @@ class PhiIntegrationCalculator:
     def _save_snapshot(self, result: PhiResult):
         """Persist Φ snapshot for timeseries"""
         try:
-            conn = sqlite3.connect(str(self.db_path))
+            conn = sqlite3.connect(str(self.db_path), timeout=2)
             conn.execute(
                 "INSERT OR REPLACE INTO phi_snapshots (domain, phi, n_nodes, n_edges, density, components, vulnerability, sub_scores, timestamp) VALUES (?,?,?,?,?,?,?,?,?)",
                 (result.domain, result.phi, result.n_nodes, result.n_edges,
@@ -203,7 +203,7 @@ class PhiIntegrationCalculator:
     def get_timeseries(self, domain: str, limit: int = 50) -> List[Dict]:
         """Get Φ history for a domain"""
         try:
-            conn = sqlite3.connect(str(self.db_path))
+            conn = sqlite3.connect(str(self.db_path), timeout=2)
             cursor = conn.execute(
                 "SELECT phi, n_nodes, n_edges, density, components, vulnerability, sub_scores, timestamp FROM phi_snapshots WHERE domain = ? ORDER BY timestamp DESC LIMIT ?",
                 (domain, limit)

@@ -162,7 +162,8 @@ class CameraCapture:
             
             face_data.append({
                 "emotion": emotion,
-                "conf": 0.7
+                "conf": 0.7,
+                "position": {"x": int(x), "y": int(y), "w": int(w), "h": int(h)}
             })
         
         # Scene analysis
@@ -238,7 +239,10 @@ class CameraCapture:
         
         return {
             "desc": description,
-            "motion": motion_detected
+            "motion": motion_detected,
+            "brightness": float(brightness),
+            "contrast": float(contrast),
+            "motion_intensity": float(motion_intensity)
         }
     
     def _get_dominant_colors(self, frame: np.ndarray, n_colors: int = 3) -> List[str]:

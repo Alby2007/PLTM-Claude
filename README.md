@@ -2,10 +2,10 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![MCP Tools](https://img.shields.io/badge/MCP_tools-136-brightgreen.svg)](#tool-categories)
+[![MCP Tools](https://img.shields.io/badge/MCP_tools-178-brightgreen.svg)](#tool-categories)
 [![Tests](https://img.shields.io/badge/tests-11%20passing-brightgreen.svg)](#testing)
 
-> 136 MCP tools · 4 memory types · Semantic embeddings · Memory jury + meta-judge · Epistemic self-monitoring · React dashboard
+> 178 MCP tools · 4 memory types · Semantic embeddings · Memory jury + meta-judge · Epistemic self-monitoring · React dashboard
 
 An MCP server that gives Claude Desktop persistent memory, self-awareness, epistemic hygiene, and genuine agency across conversations — with a typed memory system, embedding-based semantic search, a 3-judge memory jury + meta-judge observability layer, and a real-time dashboard.
 
@@ -23,7 +23,7 @@ curl -fsSL https://raw.githubusercontent.com/Alby2007/PLTM-Claude/main/install.s
 irm https://raw.githubusercontent.com/Alby2007/PLTM-Claude/main/install.ps1 | iex
 ```
 
-**Then restart Claude Desktop** — 136 tools ready.
+**Then restart Claude Desktop** — 178 tools ready.
 
 That's it. The installer clones the repo, creates a venv, installs deps, downloads the embedding model, initializes the database, and auto-configures Claude Desktop. No manual JSON editing.
 

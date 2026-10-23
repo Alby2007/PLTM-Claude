@@ -92,6 +92,35 @@ class ReconciliationResolver:
                 explanation="Corrected information supersedes previous",
             )
 
+        # Rule 1b: Weak opposites (neutral stance, past-tense preference)
+        # coexist — a temporal record or neutral stance is not erased by a
+        # later polar statement.
+        if self._is_weak_opposite(candidate.predicate, existing.predicate):
+            return ReconciliationDecision(
+                action=ReconciliationAction.CONTEXTUALIZE,
+                keep_existing=True,
+                keep_candidate=True,
+                archive_existing=False,
+                explanation=(
+                    f"Weak opposition ({existing.predicate} vs "
+                    f"{candidate.predicate}) — both kept"
+                ),
+            )
+
+        # Rule 1c: Refinement — one object contains the other
+        # ("Microsoft" → "Microsoft Azure"). Detection flags the pair; here we
+        # keep both since the narrower claim refines rather than replaces.
+        norm_c = candidate.object.lower().strip()
+        norm_e = existing.object.lower().strip()
+        if norm_c != norm_e and (norm_c in norm_e or norm_e in norm_c):
+            return ReconciliationDecision(
+                action=ReconciliationAction.CONTEXTUALIZE,
+                keep_existing=True,
+                keep_candidate=True,
+                archive_existing=False,
+                explanation="Refinement — both kept",
+            )
+
         # Rule 2: User-stated supersedes inferred
         if (
             candidate.provenance == Provenance.USER_STATED
@@ -170,6 +199,21 @@ class ReconciliationResolver:
                     contexts_added=[],  # Already have contexts
                 )
 
+        # Scoped candidate vs unscoped existing: "I don't like coffee when
+        # tired" does not erase the general "I like coffee".
+        if candidate.contexts and not existing.contexts:
+            return ReconciliationDecision(
+                action=ReconciliationAction.CONTEXTUALIZE,
+                keep_existing=True,
+                keep_candidate=True,
+                archive_existing=False,
+                explanation=(
+                    f"Context-scoped statement coexists with general claim "
+                    f"({candidate.contexts})"
+                ),
+                contexts_added=[],
+            )
+
         # Try to infer contexts from temporal patterns
         time_diff = (candidate.first_observed - existing.first_observed).total_seconds()
         
@@ -182,6 +226,17 @@ class ReconciliationResolver:
         # For MVP: Don't try to auto-infer contexts
         # Future: Use LLM to extract situational differences
         return None
+
+    # Predicates describing temporal or indifferent stances — conflicts with
+    # them coexist rather than supersede.
+    _WEAK_OPPOSITE_PREDS = {"neutral", "liked_past"}
+
+    def _is_weak_opposite(self, pred1: str, pred2: str) -> bool:
+        """True when the predicate pair is a temporal/indifferent opposition"""
+        p1, p2 = pred1.lower(), pred2.lower()
+        if p1 == p2:
+            return False
+        return p1 in self._WEAK_OPPOSITE_PREDS or p2 in self._WEAK_OPPOSITE_PREDS
 
     def reconcile_batch(
         self,

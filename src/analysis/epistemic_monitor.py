@@ -64,9 +64,16 @@ HEDGE_PHRASES = [
 ]
 
 
+_tables_ensured = False
+
+
 def _ensure_tables():
-    """Create epistemic monitoring tables."""
-    conn = sqlite3.connect(str(_db()))
+    """Create epistemic monitoring tables (lazily — called on first use,
+    not at import time, so importing this module never writes to the DB)."""
+    global _tables_ensured
+    if _tables_ensured:
+        return
+    conn = sqlite3.connect(str(_db()), timeout=2)
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS prediction_book (
             id TEXT PRIMARY KEY,
@@ -113,13 +120,14 @@ def _ensure_tables():
     """)
     conn.commit()
     conn.close()
-
-
-_ensure_tables()
+    _tables_ensured = True
 
 
 class EpistemicMonitor:
     """Claude's epistemic hygiene enforcement system."""
+
+    def __init__(self):
+        _ensure_tables()
 
     def check_before_claiming(self, claim: str, felt_confidence: float,
                                domain: str = "general",
@@ -130,7 +138,7 @@ class EpistemicMonitor:
 
         Returns whether to proceed, adjusted confidence, and required actions.
         """
-        conn = sqlite3.connect(str(_db()))
+        conn = sqlite3.connect(str(_db()), timeout=2)
 
         # Get historical calibration for this domain
         cal = conn.execute(
@@ -251,7 +259,7 @@ class EpistemicMonitor:
         so we can track calibration over time.
         """
         claim_id = str(uuid4())
-        conn = sqlite3.connect(str(_db()))
+        conn = sqlite3.connect(str(_db()), timeout=2)
         conn.execute(
             """INSERT INTO prediction_book
                (id, timestamp, claim, domain, felt_confidence, epistemic_status,
@@ -283,7 +291,7 @@ class EpistemicMonitor:
 
         Can find by claim_id or by searching claim_text.
         """
-        conn = sqlite3.connect(str(_db()))
+        conn = sqlite3.connect(str(_db()), timeout=2)
 
         if claim_id:
             row = conn.execute(
@@ -346,7 +354,7 @@ class EpistemicMonitor:
         Get calibration curves and accuracy stats.
         Shows: "When you feel X% confident, you're actually Y% accurate"
         """
-        conn = sqlite3.connect(str(_db()))
+        conn = sqlite3.connect(str(_db()), timeout=2)
 
         if domain:
             domains = [domain]
@@ -451,7 +459,7 @@ class EpistemicMonitor:
 
     def get_unresolved_claims(self, domain: str = "", limit: int = 20) -> Dict:
         """Get claims that haven't been verified yet — the prediction book backlog."""
-        conn = sqlite3.connect(str(_db()))
+        conn = sqlite3.connect(str(_db()), timeout=2)
 
         if domain:
             rows = conn.execute(

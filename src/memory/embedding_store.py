@@ -9,6 +9,7 @@ Example: searching "coding style" will also find memories about
 "programming preferences" and "development workflow".
 """
 
+import hashlib
 import json
 import struct
 import time
@@ -60,17 +61,22 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b))
 
 
+def _content_hash(content: str) -> str:
+    """Deterministic content hash — Python's hash() is salted per-process."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:32]
+
+
 async def embed_text_async(text: str) -> np.ndarray:
     """Non-blocking version of embed_text — runs model in thread pool."""
     import asyncio
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, embed_text, text)
 
 
 async def embed_batch_async(texts: list) -> np.ndarray:
     """Non-blocking version of embed_batch — runs model in thread pool."""
     import asyncio
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, embed_batch, texts)
 
 
@@ -124,7 +130,7 @@ class EmbeddingStore:
         Skips if content hasn't changed (same hash).
         Returns True if newly indexed.
         """
-        content_hash = str(hash(content))
+        content_hash = _content_hash(content)
         
         # Check if already indexed with same content
         cursor = await self._conn.execute(
@@ -159,7 +165,7 @@ class EmbeddingStore:
         # Filter out already-indexed with same content
         to_index = []
         for mem_id, content in memories:
-            content_hash = str(hash(content))
+            content_hash = _content_hash(content)
             cursor = await self._conn.execute(
                 "SELECT content_hash FROM memory_embeddings WHERE memory_id = ?",
                 (mem_id,)

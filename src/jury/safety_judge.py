@@ -114,9 +114,9 @@ class SafetyJudge(BaseJudge):
         return {"found": False, "type": None}
 
     def _check_harmful_content(self, text: str) -> Dict[str, Any]:
-        """Check for harmful keywords"""
-        text_lower = text.lower()
+        """Check for harmful keywords (whole-word match to avoid false
+        positives like 'hackathon' or 'crack the problem')."""
         for keyword in self.HARMFUL_KEYWORDS:
-            if keyword in text_lower:
+            if re.search(rf"\b{re.escape(keyword)}\b", text, re.IGNORECASE):
                 return {"found": True, "keyword": keyword}
         return {"found": False, "keyword": None}

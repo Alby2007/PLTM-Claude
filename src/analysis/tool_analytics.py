@@ -79,9 +79,13 @@ class ToolAnalytics:
         args_hash: str = "",
         result_size: int = 0,
     ):
-        """Log a single tool invocation. Called from call_tool wrapper."""
+        """Log a single tool invocation. Called from call_tool wrapper.
+
+        Short busy timeout: this runs synchronously inside the event loop —
+        a held lock must fail fast, not stall every tool call for 5s.
+        """
         try:
-            conn = sqlite3.connect(str(self.db_path))
+            conn = sqlite3.connect(str(self.db_path), timeout=0.2)
             conn.execute(
                 """INSERT INTO tool_invocations
                    (tool_name, session_id, timestamp, duration_ms, success, error_type, args_hash, result_size)

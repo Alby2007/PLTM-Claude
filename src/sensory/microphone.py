@@ -195,7 +195,11 @@ class MicrophoneCapture:
             "ts": time.time(),
             "speech": speech_detected,
             "text": transcript,
-            "tone": tone
+            "tone": tone,
+            "confidence": confidence,
+            # Ambient analysis was computed above but never emitted —
+            # environment context (quiet/noisy/voices) was silently discarded.
+            "ambient": ambient
         }
         
         if acoustic:

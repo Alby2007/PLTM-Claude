@@ -48,6 +48,7 @@ ONTOLOGY_RULES: dict[AtomType, dict] = {
             "studies_at", "member_of", "part_of",
             "works_in",  # Location-based work
             "lives_in",  # Residential location
+            "located_at",  # Canonical location predicate
         ],
         "description": "Organizational affiliations and locations",
         "decay_rate": 0.03,  # Slow (jobs/schools change infrequently)
@@ -78,7 +79,7 @@ ONTOLOGY_RULES: dict[AtomType, dict] = {
     AtomType.PREFERENCE: {
         "allowed_predicates": [
             "likes", "dislikes", "loves", "hates",
-            "prefers", "avoids", "enjoys",
+            "prefers", "avoids", "enjoys", "wants",
             "neutral", "liked_past", "prefers_over",
         ],
         "description": "Preferences and tastes",
@@ -188,6 +189,7 @@ ONTOLOGY_RULES: dict[AtomType, dict] = {
             "failed", "attempted", "decided",
             "happened", "studied",
             "worked_at_year", "works_at_year",  # Temporal events
+            "worked_at_past",  # Past employment (superseded)
         ],
         "description": "Time-bound events",
         "decay_rate": 0.06,  # Medium (events fade from relevance)
@@ -253,7 +255,7 @@ ONTOLOGY_RULES: dict[AtomType, dict] = {
             "distrusts", "accepts", "rejects", "drives", "does",
             "studied", "neutral", "liked_past", "will_learn",
             "started_learning", "worked_at_year", "works_at_year",
-            "prefers_over",
+            "prefers_over", "lives_in", "located_at",
         ],
         "description": "Legacy relation type (being phased out)",
         "decay_rate": 0.05,  # Generic decay rate
@@ -278,6 +280,7 @@ PREDICATE_RELATIONSHIPS = {
         ["works_at", "works_for", "employed_by"],  # Can only work at one place
         ["studies_at", "enrolled_in"],             # Can only study at one place
         ["is", "type_of"],                          # Identity is singular
+        ["lives_in", "located_at"],                 # Can only live in one place
     ],
     
     "progressive_sequences": [

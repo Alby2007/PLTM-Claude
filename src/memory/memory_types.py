@@ -19,6 +19,7 @@ Each type has its own:
 import asyncio
 import json
 import math
+import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -112,17 +113,25 @@ class TypedMemory:
     
     def current_strength(self) -> float:
         """Calculate current strength with type-specific decay."""
+        params = DECAY_PROFILES[self.memory_type]
+        return max(params.min_strength, min(params.max_strength, self.decayed_strength()))
+
+    def decayed_strength(self) -> float:
+        """Decayed strength WITHOUT the min_strength floor.
+
+        Used by auto_prune, which exists precisely to forget memories that
+        decayed past the floor — comparing the floored value would make
+        pruning a no-op.
+        """
         if self.created_at == 0:
             return self.strength
-        
+
         params = DECAY_PROFILES[self.memory_type]
         hours_since_access = (time.time() - self.last_accessed) / 3600
-        
+
         # Exponential decay: S(t) = S0 * 2^(-t/half_life)
         decay_factor = math.pow(2, -hours_since_access / params.half_life_hours)
-        decayed = self.strength * decay_factor
-        
-        return max(params.min_strength, min(params.max_strength, decayed))
+        return self.strength * decay_factor
     
     def rehearse(self) -> float:
         """Access/recall this memory — boosts strength."""
@@ -349,7 +358,7 @@ class TypedMemoryStore:
         if not mem:
             return None
         mem.rehearse()
-        await self.store(mem)  # Persist updated strength
+        await self.store(mem, bypass_jury=True)  # Persist updated strength
         return mem
     
     async def query(
@@ -446,7 +455,7 @@ class TypedMemoryStore:
                     # Reinforce existing semantic memory
                     existing[0].consolidation_count += 1
                     existing[0].strength = min(1.0, existing[0].strength + 0.1)
-                    await self.store(existing[0])
+                    await self.store(existing[0], bypass_jury=True)
                 else:
                     # Create new semantic memory from episodes
                     contents = [ep.content for ep in eps[:5]]
@@ -461,7 +470,7 @@ class TypedMemoryStore:
                         consolidation_count=1,
                         tags=[tag, "consolidated"],
                     )
-                    await self.store(semantic)
+                    await self.store(semantic, bypass_jury=True)
                     new_semantics.append(semantic)
         
         return new_semantics
@@ -489,7 +498,7 @@ class TypedMemoryStore:
             belief.confidence = max(0.01, min(0.99, belief.confidence + confidence_delta))
         
         belief.strength = min(1.0, belief.strength + 0.1)  # Any update strengthens
-        await self.store(belief)
+        await self.store(belief, bypass_jury=True)
         return belief
     
     # ========== PROCEDURAL OPERATIONS ==========
@@ -509,7 +518,7 @@ class TypedMemoryStore:
             proc.failure_count += 1
             proc.strength = max(0.1, proc.strength - 0.1)
         
-        await self.store(proc)
+        await self.store(proc, bypass_jury=True)
         return proc
     
     # ========== STATS ==========
@@ -575,11 +584,13 @@ class TypedMemoryStore:
                             supporting.append({"id": mem.id, "content": mem.content[:80], "sim": hit["similarity"]})
                         elif hit["similarity"] > 0.4:
                             # Moderate similarity — check for negation patterns
+                            # (word-boundary match so "no" doesn't hit "knowledge")
                             bl = belief.content.lower()
                             ml = mem.content.lower()
                             negation_words = ["not", "never", "doesn't", "don't", "isn't", "aren't", "won't", "can't", "no"]
-                            b_neg = any(w in bl for w in negation_words)
-                            m_neg = any(w in ml for w in negation_words)
+                            neg_re = r"\b(?:" + "|".join(negation_words) + r")\b"
+                            b_neg = re.search(neg_re, bl) is not None
+                            m_neg = re.search(neg_re, ml) is not None
                             if b_neg != m_neg:
                                 contradicting.append({"id": mem.id, "content": mem.content[:80], "sim": hit["similarity"]})
                             else:
@@ -612,7 +623,7 @@ class TypedMemoryStore:
                 belief.confidence = new_confidence
                 belief.evidence_for = list(set(belief.evidence_for + [s["id"] for s in supporting]))
                 belief.evidence_against = list(set(belief.evidence_against + [c["id"] for c in contradicting]))
-                await self.store(belief)
+                await self.store(belief, bypass_jury=True)
             
             report.append({
                 "belief_id": belief.id,
@@ -898,7 +909,7 @@ class TypedMemoryStore:
         
         if set(new_tags) != set(mem.tags):
             mem.tags = new_tags
-            await self.store(mem)
+            await self.store(mem, bypass_jury=True)
         
         return mem
     
@@ -912,7 +923,7 @@ class TypedMemoryStore:
                 new_tags = self.auto_tag(mem.trigger, new_tags)
             if set(new_tags) != set(mem.tags):
                 mem.tags = new_tags
-                await self.store(mem)
+                await self.store(mem, bypass_jury=True)
                 updated += 1
         
         # Count by domain
@@ -953,7 +964,7 @@ class TypedMemoryStore:
             mem.confidence = max(0.01, min(0.99, new_confidence))
         
         mem.last_accessed = time.time()
-        await self.store(mem)
+        await self.store(mem, bypass_jury=True)
         return mem
     
     async def forget_memory(self, memory_id: str, reason: str = "") -> bool:
@@ -990,7 +1001,9 @@ class TypedMemoryStore:
         
         pruned_ids = []
         for mem in all_mems:
-            current = mem.current_strength()
+            # Compare the unfloored decayed strength — current_strength()
+            # clamps at the type's floor, which makes pruning a no-op.
+            current = mem.decayed_strength()
             if current < strength_threshold:
                 mt = mem.memory_type.value
                 pruned[mt] = pruned.get(mt, 0) + 1

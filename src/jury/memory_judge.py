@@ -20,8 +20,10 @@ class MemoryJudge(BaseJudge):
     - Completeness (all required fields present)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, store=None) -> None:
         super().__init__("MemoryJudge")
+        # Optional store for future DB-backed checks (duplicate/conflict lookup)
+        self.store = store
 
     def evaluate(self, atom: MemoryAtom) -> Dict[str, Any]:
         """

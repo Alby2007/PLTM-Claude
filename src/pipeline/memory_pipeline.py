@@ -40,13 +40,54 @@ class MemoryPipeline:
     Progressive updates allow UI to show results as they complete.
     """
 
-    def __init__(self, store: SQLiteGraphStore) -> None:
+    def __init__(self, store: SQLiteGraphStore, extractor=None) -> None:
         self.store = store
-        self.extractor = HybridExtractor()
+        # Accept a custom extractor for backwards compatibility; fall back to
+        # the default hybrid extractor.
+        if extractor is not None and not hasattr(extractor, "extract_atoms"):
+            sync_extract = extractor.extract
+
+            async def _extract_shim(message, user_id, session_id=""):
+                return sync_extract(message, user_id, session_id)
+
+            self.extractor = type(
+                "SyncExtractorAdapter",
+                (),
+                {"extract_atoms": staticmethod(_extract_shim),
+                 "get_stats": staticmethod(lambda: {})},
+            )()
+        else:
+            self.extractor = extractor or HybridExtractor()
         self.jury = JuryOrchestrator()
         self.write_lane = WriteLane(store)
         self.messages_processed = 0
         logger.info("MemoryPipeline initialized (3-stage async)")
+
+    async def process(
+        self,
+        user_id: str,
+        message: str,
+        session_id: str = "",
+    ) -> dict:
+        """
+        Process a message end-to-end and return a summary.
+
+        Convenience wrapper that drains process_message()'s progressive
+        updates into a single awaitable result (agents and older callers
+        use this instead of `async for`).
+        """
+        result = {
+            "atoms_extracted": 0,
+            "atoms_approved": 0,
+            "atoms_promoted": 0,
+            "conflicts_resolved": 0,
+        }
+        async for update in self.process_message(message, user_id, session_id):
+            for field in result:
+                value = getattr(update, field, 0)
+                if value:
+                    result[field] = value
+        return result
 
     async def process_message(
         self,

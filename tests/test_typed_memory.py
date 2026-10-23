@@ -22,13 +22,6 @@ def db_path(tmp_path):
 
 
 @pytest.fixture
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture
 async def store(db_path):
     s = TypedMemoryStore(db_path)
     await s.connect()

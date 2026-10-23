@@ -69,16 +69,30 @@ prefetch_engine = None
 contradiction_resolver = None
 emergence_detector = None
 _current_session_id = ""
+_db_path: str = ""  # Resolved at initialize_pltm() — handlers must use _get_db_path()
+
+
+def _get_db_path() -> str:
+    """Return the DB path chosen at init (or the default if not yet initialized)."""
+    return _db_path or str(Path(__file__).parent.parent / "data" / "pltm_mcp.db")
 
 
 async def initialize_pltm(custom_db_path: str = None):
     """Initialize PLTM system components"""
     global store, pipeline, personality_agent, personality_synth
     global mood_tracker, mood_patterns, conflict_resolver, contextual_personality
-    global typed_memory_store, embedding_store, typed_memory_pipeline
-    
+    global typed_memory_store, embedding_store, typed_memory_pipeline, _db_path
+
     # Initialize storage (absolute path so it works regardless of cwd)
     db_path = Path(custom_db_path) if custom_db_path else Path(__file__).parent.parent / "data" / "pltm_mcp.db"
+    _db_path = str(db_path)
+    # Modules that resolve the DB via db_config (epistemic monitor, etc.)
+    # must see the same path, not the default
+    try:
+        from src.db_config import set_db_path as _set_db_path
+        _set_db_path(str(db_path))
+    except Exception:
+        pass
     db_path.parent.mkdir(parents=True, exist_ok=True)
     store = SQLiteGraphStore(str(db_path))
     await store.connect()
@@ -136,7 +150,8 @@ async def initialize_pltm(custom_db_path: str = None):
     global phi_scorer, criticality_pruner, phi_consolidator, phi_context_builder
     phi_scorer = PhiMemoryScorer(typed_memory_store, embedding_store, str(db_path))
     await phi_scorer.connect()
-    criticality_pruner = CriticalityPruner(phi_scorer, SelfOrganizedCriticality(store), typed_memory_store)
+    soc = SelfOrganizedCriticality(store)
+    criticality_pruner = CriticalityPruner(phi_scorer, soc, typed_memory_store)
     phi_consolidator = PhiConsolidator(typed_memory_store, embedding_store, phi_scorer)
     phi_context_builder = PhiContextBuilder(phi_scorer, typed_memory_store, embedding_store)
     
@@ -217,16 +232,23 @@ async def initialize_pltm(custom_db_path: str = None):
     
     # Initialize Emergence Detector (MetaCriticalityObserver)
     from src.meta.emergence_detector import MetaCriticalityObserver
-    global emergence_detector
+    from src.analysis.phi_integration import PhiIntegrationCalculator
+    from src.memory.knowledge_graph import KnowledgeNetworkGraph
+    global emergence_detector, _knowledge_graph
     emergence_detector = MetaCriticalityObserver(db_path)
-    # Pass in existing subsystems for metric measurement
-    _criticality = getattr(_reg, 'criticality', None)
-    _phi_calc = getattr(_reg, 'phi_calc', None)
-    _kg = getattr(_reg, 'knowledge_graph', None)
+    # Wire the real subsystems — without these the observer silently degrades
+    # to placeholder constants (r=1.0, Φ=0.0, bridges=0)
+    _phi_calc = PhiIntegrationCalculator(db_path)
+    if _knowledge_graph is None:
+        _knowledge_graph = KnowledgeNetworkGraph(store)
+    _kg = _knowledge_graph
     await emergence_detector.connect(
-        store=store, criticality=_criticality,
+        store=store, criticality=soc,
         phi_calc=_phi_calc, knowledge_graph=_kg,
     )
+    _reg.criticality = soc
+    _reg.phi_calc = _phi_calc
+    _reg.knowledge_graph = _kg
     _reg.emergence_detector = emergence_detector
     
     logger.info("PLTM MCP Server initialized (with embeddings + jury + pipeline + intelligence + ΦRMS + analytics + learning + hierarchical + emergence)")
@@ -3308,6 +3330,16 @@ async def handle_check_pltm(args: Dict[str, Any]) -> List[TextContent]:
 _sensory_camera = None
 _sensory_microphone = None
 _sensory_buffer = None
+_sensory_integrator = None
+
+
+def _get_sensory_integrator():
+    """Lazy SensoryMemoryIntegrator — turns buffered observations into atoms."""
+    global _sensory_integrator
+    if _sensory_integrator is None and store is not None:
+        from src.sensory.memory_integration import SensoryMemoryIntegrator
+        _sensory_integrator = SensoryMemoryIntegrator(store)
+    return _sensory_integrator
 
 async def handle_sensory_start(args: Dict[str, Any]) -> List[TextContent]:
     """Start camera and microphone capture"""
@@ -3405,7 +3437,17 @@ async def handle_sensory_look(args: Dict[str, Any]) -> List[TextContent]:
     # Store in buffer
     if _sensory_buffer:
         _sensory_buffer.add_visual(observation)
-    
+
+    # Persist to memory atoms when there's something worth remembering
+    integrator = _get_sensory_integrator()
+    if integrator and (observation.get("n_faces", 0) > 0
+                       or observation.get("scene", {}).get("motion")):
+        try:
+            await integrator.store_visual_observation(
+                observation, user_id=args.get("user_id", "claude"))
+        except Exception as e:
+            logger.warning(f"Sensory→memory integration failed: {e}")
+
     return [TextContent(type="text", text=compact_json({
         "n_faces": observation["n_faces"],
         "faces": observation["faces"],
@@ -3432,7 +3474,19 @@ async def handle_sensory_listen(args: Dict[str, Any]) -> List[TextContent]:
     # Store in buffer
     if _sensory_buffer:
         _sensory_buffer.add_audio(observation)
-    
+
+    # Persist to memory atoms when there's something worth remembering —
+    # speech, a transcript, or non-quiet ambient environment
+    ambient = observation.get("ambient") or {}
+    integrator = _get_sensory_integrator()
+    if integrator and (observation.get("speech") or observation.get("text")
+                       or ambient.get("vol", "quiet") != "quiet"):
+        try:
+            await integrator.store_audio_observation(
+                observation, user_id=args.get("user_id", "claude"))
+        except Exception as e:
+            logger.warning(f"Sensory→memory integration failed: {e}")
+
     return [TextContent(type="text", text=compact_json({
         "speech": observation["speech"],
         "text": observation["text"],
@@ -3468,8 +3522,8 @@ async def handle_sensory_history(args: Dict[str, Any]) -> List[TextContent]:
     
     # Map "both" to None for buffer API
     modality_filter = None if modality == "both" else modality
-    
-    timeline = _sensory_buffer.get_timeline(seconds=seconds)
+
+    timeline = _sensory_buffer.get_timeline(seconds=seconds, modality=modality_filter)
     
     return [TextContent(type="text", text=compact_json(timeline))]
 
@@ -3995,6 +4049,16 @@ _knowledge_graph = None
 _self_improver = None
 
 
+def get_attention_retrieval():
+    """Shared AttentionMemoryRetrieval — real attention module (semantic +
+    recency + confidence scoring, softmax, cache)."""
+    global _attention_retrieval
+    if _attention_retrieval is None:
+        from src.memory.attention_retrieval import AttentionMemoryRetrieval
+        _attention_retrieval = AttentionMemoryRetrieval(store)
+    return _attention_retrieval
+
+
 async def handle_quantum_add(args: Dict[str, Any]) -> List[TextContent]:
     """Add state to quantum superposition"""
     from src.memory.quantum_superposition import QuantumMemorySystem
@@ -4045,96 +4109,29 @@ async def handle_quantum_peek(args: Dict[str, Any]) -> List[TextContent]:
 
 
 async def handle_attention_retrieve(args: Dict[str, Any]) -> List[TextContent]:
-    """Attention-weighted memory retrieval - lightweight direct SQL"""
-    user_id = args.get("user_id", "alby")
-    query = args.get("query", "")
-    top_k = int(args.get("top_k", 10))
-    
-    if not store._conn:
-        return [TextContent(type="text", text=compact_json({"error": "DB not connected", "n": 0}))]
-    
-    # Get memories directly
-    cursor = await store._conn.execute(
-        "SELECT predicate, object, confidence FROM atoms WHERE subject = ? LIMIT 100",
-        (user_id,)
+    """Attention-weighted memory retrieval — real attention module."""
+    ar = get_attention_retrieval()
+    result = await ar.retrieve_with_attention(
+        user_id=args.get("user_id", "claude"),
+        query=args.get("query", ""),
+        top_k=int(args.get("top_k", 10)),
+        domain=args.get("domain"),
+        temperature=float(args.get("temperature", 1.0)),
     )
-    rows = await cursor.fetchall()
-    
-    if not rows:
-        return [TextContent(type="text", text=compact_json({"n": 0, "memories": []}))]
-    
-    # Simple attention scoring based on keyword overlap + confidence
-    query_words = set(query.lower().split())
-    scored = []
-    for row in rows:
-        text = f"{row[0]} {row[1]}".lower()
-        words = set(text.split())
-        overlap = len(query_words & words)
-        score = (overlap / max(len(query_words), 1)) * 0.7 + row[2] * 0.3
-        scored.append((row, score))
-    
-    scored.sort(key=lambda x: x[1], reverse=True)
-    top = scored[:top_k]
-    
-    memories = [{"p": s[0][0], "o": s[0][1][:40], "a": round(s[1], 3)} for s in top]
-    
-    return [TextContent(type="text", text=compact_json({"n": len(memories), "top": memories[:5]}))]
+    return [TextContent(type="text", text=compact_json(result))]
 
 
 async def handle_attention_multihead(args: Dict[str, Any]) -> List[TextContent]:
-    """Multi-head attention retrieval - lightweight direct SQL"""
-    user_id = args.get("user_id", "alby")
-    query = args.get("query", "")
-    num_heads = int(args.get("num_heads", 4))
-    
-    if not store._conn:
-        return [TextContent(type="text", text=compact_json({"error": "DB not connected", "n": 0}))]
-    
-    # Get memories directly
-    cursor = await store._conn.execute(
-        "SELECT predicate, object, confidence FROM atoms WHERE subject = ? LIMIT 100",
-        (user_id,)
+    """Multi-head attention retrieval — real attention module
+    (semantic / recency / confidence / balanced heads)."""
+    ar = get_attention_retrieval()
+    result = await ar.multi_head_attention(
+        user_id=args.get("user_id", "claude"),
+        query=args.get("query", ""),
+        num_heads=int(args.get("num_heads", 4)),
+        top_k_per_head=int(args.get("top_k_per_head", 5)),
     )
-    rows = await cursor.fetchall()
-    
-    if not rows:
-        return [TextContent(type="text", text=compact_json({"n": 0, "heads": []}))]
-    
-    # Simulate multi-head by using different scoring strategies
-    query_words = set(query.lower().split())
-    
-    heads_results = []
-    for head_idx in range(num_heads):
-        scored = []
-        for row in rows:
-            text = f"{row[0]} {row[1]}".lower()
-            words = set(text.split())
-            
-            # Different heads weight differently
-            if head_idx == 0:  # Semantic head
-                overlap = len(query_words & words)
-                score = overlap / max(len(query_words), 1)
-            elif head_idx == 1:  # Confidence head
-                score = row[2]
-            elif head_idx == 2:  # Length head (prefer concise)
-                score = 1.0 / (1 + len(text) / 50)
-            else:  # Mixed head
-                overlap = len(query_words & words)
-                score = (overlap / max(len(query_words), 1)) * 0.5 + row[2] * 0.5
-            
-            scored.append((row, score))
-        
-        scored.sort(key=lambda x: x[1], reverse=True)
-        top = scored[:3]
-        heads_results.append({
-            "head": head_idx,
-            "top": [{"p": s[0][0], "o": s[0][1][:30]} for s in top]
-        })
-    
-    return [TextContent(type="text", text=compact_json({
-        "n": len(rows),
-        "heads": heads_results[:4]
-    }))]
+    return [TextContent(type="text", text=compact_json(result))]
 
 
 async def handle_knowledge_add(args: Dict[str, Any]) -> List[TextContent]:
@@ -4254,13 +4251,7 @@ async def handle_quantum_stats(args: Dict[str, Any]) -> List[TextContent]:
 
 async def handle_attention_clear_cache(args: Dict[str, Any]) -> List[TextContent]:
     """Clear attention cache"""
-    from src.memory.attention_retrieval import AttentionMemoryRetrieval
-    
-    global _attention_retrieval
-    if _attention_retrieval is None:
-        _attention_retrieval = AttentionMemoryRetrieval(store)
-    
-    count = _attention_retrieval.clear_cache()
+    count = get_attention_retrieval().clear_cache()
     return [TextContent(type="text", text=compact_json({"cleared": count}))]
 
 
@@ -4438,97 +4429,17 @@ async def handle_unverified_claims(args: Dict[str, Any]) -> List[TextContent]:
 
 
 async def handle_mmr_retrieve(args: Dict[str, Any]) -> List[TextContent]:
-    """MMR retrieval for diverse context selection - lightweight version"""
-    import numpy as np
-    import time
-    
-    user_id = args.get("user_id", "alby")
-    query = args.get("query", "")
-    top_k = int(args.get("top_k", 5))
-    lambda_param = float(args.get("lambda_param", 0.6))
-    
-    start = time.time()
-    
-    # Check store connection
-    if not store._conn:
-        return [TextContent(type="text", text=compact_json({"error": "DB not connected", "n": 0}))]
-    
-    # Direct SQL query - bypass heavy ORM
-    cursor = await store._conn.execute(
-        """SELECT id, predicate, object, confidence 
-           FROM atoms WHERE subject = ? AND graph = 'substantiated'
-           ORDER BY confidence DESC LIMIT 50""",
-        (user_id,)
+    """MMR retrieval for diverse context selection — real attention module
+    (sentence-transformer embeddings, Carbonell & Goldstein MMR)."""
+    ar = get_attention_retrieval()
+    result = await ar.mmr_retrieve(
+        user_id=args.get("user_id", "claude"),
+        query=args.get("query", ""),
+        top_k=int(args.get("top_k", 5)),
+        lambda_param=float(args.get("lambda_param", 0.6)),
+        min_dissim=float(args.get("min_dissim", 0.25)),
     )
-    rows = await cursor.fetchall()
-    
-    if not rows:
-        return [TextContent(type="text", text=compact_json({"n": 0, "memories": [], "mean_dissim": 0.0}))]
-    
-    # Simple hash-based embedding
-    def text_to_vec(text: str, dim: int = 32) -> np.ndarray:
-        vec = np.zeros(dim)
-        for word in text.lower().split():
-            vec[hash(word) % dim] += 1.0
-        norm = np.linalg.norm(vec)
-        return vec / norm if norm > 0 else vec
-    
-    # Compute relevance (keyword overlap with query)
-    query_words = set(query.lower().split())
-    relevance = []
-    embeddings = []
-    
-    for row in rows:
-        text = f"{row[1]} {row[2]}"
-        overlap = len(set(text.lower().split()) & query_words)
-        rel = (overlap / max(len(query_words), 1)) * 0.7 + row[3] * 0.3
-        relevance.append(rel)
-        embeddings.append(text_to_vec(text))
-    
-    relevance = np.array(relevance)
-    embeddings = np.array(embeddings)
-    
-    # Greedy MMR selection
-    selected = []
-    remaining = list(range(len(rows)))
-    remaining.sort(key=lambda i: relevance[i], reverse=True)
-    
-    for _ in range(min(top_k, len(rows))):
-        if not remaining:
-            break
-        
-        best_idx = None
-        best_score = float('-inf')
-        
-        for idx in remaining[:20]:  # Only check top 20
-            if not selected:
-                score = relevance[idx]
-            else:
-                max_sim = max(
-                    float(np.dot(embeddings[idx], embeddings[s]) / 
-                          (np.linalg.norm(embeddings[idx]) * np.linalg.norm(embeddings[s]) + 1e-9))
-                    for s in selected
-                )
-                score = lambda_param * relevance[idx] - (1 - lambda_param) * max_sim
-            
-            if score > best_score:
-                best_score = score
-                best_idx = idx
-        
-        if best_idx is not None:
-            selected.append(best_idx)
-            remaining.remove(best_idx)
-    
-    # Build result
-    memories = [{"p": rows[i][1], "o": rows[i][2][:40], "rel": round(relevance[i], 2)} for i in selected]
-    
-    elapsed = time.time() - start
-    return [TextContent(type="text", text=compact_json({
-        "n": len(memories), 
-        "memories": memories[:5],
-        "ms": int(elapsed * 1000),
-        "lambda": lambda_param
-    }))]
+    return [TextContent(type="text", text=compact_json(result))]
 
 
 # === ACTION ACCOUNTING HANDLERS ===
@@ -4599,7 +4510,7 @@ def get_entropy_injector():
 
 async def handle_inject_entropy_random(args: Dict[str, Any]) -> List[TextContent]:
     """Inject entropy via random domain sampling - lightweight direct SQL"""
-    user_id = args.get("user_id", "alby")
+    user_id = args.get("user_id", "claude")
     n_domains = int(args.get("n_domains", 3))
     
     if not store._conn:
@@ -4628,7 +4539,7 @@ async def handle_inject_entropy_random(args: Dict[str, Any]) -> List[TextContent
 
 async def handle_inject_entropy_antipodal(args: Dict[str, Any]) -> List[TextContent]:
     """Inject entropy via antipodal activation - lightweight direct SQL"""
-    user_id = args.get("user_id", "alby")
+    user_id = args.get("user_id", "claude")
     context = args.get("current_context", "")
     n_memories = int(args.get("n_memories", 5))
     
@@ -4671,7 +4582,7 @@ async def handle_inject_entropy_antipodal(args: Dict[str, Any]) -> List[TextCont
 
 async def handle_inject_entropy_temporal(args: Dict[str, Any]) -> List[TextContent]:
     """Inject entropy via temporal diversity - lightweight direct SQL"""
-    user_id = args.get("user_id", "alby")
+    user_id = args.get("user_id", "claude")
     n_old = int(args.get("n_old", 3))
     n_recent = int(args.get("n_recent", 2))
     
@@ -4705,7 +4616,7 @@ async def handle_inject_entropy_temporal(args: Dict[str, Any]) -> List[TextConte
 async def handle_entropy_stats(args: Dict[str, Any]) -> List[TextContent]:
     """Get entropy statistics - lightweight direct SQL"""
     import math
-    user_id = args.get("user_id", "alby")
+    user_id = args.get("user_id", "claude")
     
     if not store._conn:
         return [TextContent(type="text", text=compact_json({"error": "DB not connected"}))]
@@ -4874,7 +4785,7 @@ async def handle_self_profile(args: Dict[str, Any]) -> List[TextContent]:
     """Build comprehensive self-profile from all stored data."""
     import sqlite3 as sync_sqlite
     import os
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pltm_mcp.db")
+    db_path = _get_db_path()
     conn = sync_sqlite.connect(db_path)
 
     profile = {}
@@ -4979,7 +4890,7 @@ async def handle_bootstrap_self_model(args: Dict[str, Any]) -> List[TextContent]
     import os
 
     def _sync_bootstrap():
-        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pltm_mcp.db")
+        db_path = _get_db_path()
         conn = sync_sqlite.connect(db_path, timeout=10)
         summary = {}
         try:
@@ -5480,7 +5391,7 @@ async def handle_trace_claim_reasoning(args: Dict[str, Any]) -> List[TextContent
     """Audit trail: trace WHY a claim was blocked/adjusted."""
     import sqlite3 as sync_sqlite
     import os
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pltm_mcp.db")
+    db_path = _get_db_path()
     conn = sync_sqlite.connect(db_path)
 
     trace = {}
@@ -5598,7 +5509,7 @@ async def handle_constraint_sensitivity_test(args: Dict[str, Any]) -> List[TextC
     """Simulate different calibration levels without modifying actual data."""
     import sqlite3 as sync_sqlite
     import os
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pltm_mcp.db")
+    db_path = _get_db_path()
     conn = sync_sqlite.connect(db_path)
 
     domain = args["domain"]
@@ -5695,7 +5606,7 @@ async def handle_domain_cognitive_map(args: Dict[str, Any]) -> List[TextContent]
     """Map cognitive topology: claims, errors, calibration per domain."""
     import sqlite3 as sync_sqlite
     import os
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pltm_mcp.db")
+    db_path = _get_db_path()
     conn = sync_sqlite.connect(db_path)
 
     domain_filter = args.get("domain", "")
@@ -5822,7 +5733,7 @@ async def handle_query_pltm_sql(args: Dict[str, Any]) -> List[TextContent]:
         if d in sql.upper().split():
             return [TextContent(type="text", text=compact_json({"ok": False, "error": f"Blocked: {d} not allowed in read-only mode"}))]
 
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "pltm_mcp.db")
+    db_path = _get_db_path()
 
     try:
         conn = sync_sqlite.connect(db_path)
@@ -5848,358 +5759,6 @@ async def handle_query_pltm_sql(args: Dict[str, Any]) -> List[TextContent]:
         }))]
     except Exception as e:
         return [TextContent(type="text", text=compact_json({"ok": False, "error": str(e)}))]
-
-
-# ========================================================================
-# TYPED MEMORY HANDLERS
-# ========================================================================
-
-async def handle_store_typed(args: Dict[str, Any], mem_type: str) -> List[TextContent]:
-    """Store a typed memory (episodic, semantic, belief, or procedural)."""
-    import time as _time
-    from src.memory.memory_types import TypedMemory, MemoryType
-    
-    mt = MemoryType(mem_type)
-    now = _time.time()
-    
-    mem = TypedMemory(
-        id="",
-        memory_type=mt,
-        user_id=args["user_id"],
-        content=args.get("content", args.get("trigger", "") + " → " + args.get("action", "")),
-        context=args.get("context", ""),
-        source=args.get("source", "observed"),
-        strength=1.0,
-        created_at=now,
-        last_accessed=now,
-        confidence=args.get("confidence", 0.5 if mt == MemoryType.BELIEF else 0.8),
-        episode_timestamp=now if mt == MemoryType.EPISODIC else 0,
-        emotional_valence=args.get("emotional_valence", 0.0),
-        trigger=args.get("trigger", ""),
-        action=args.get("action", ""),
-        tags=args.get("tags", []),
-    )
-    
-    mem_id = await typed_memory_store.store(mem)
-    
-    return [TextContent(type="text", text=compact_json({
-        "stored": True,
-        "id": mem_id,
-        "type": mem_type,
-        "content": mem.content[:100],
-        "strength": mem.strength,
-        "confidence": mem.confidence,
-    }))]
-
-
-async def handle_recall_memories(args: Dict[str, Any]) -> List[TextContent]:
-    """Recall typed memories with type-aware retrieval."""
-    from src.memory.memory_types import MemoryType
-    
-    mt = None
-    if args.get("memory_type"):
-        mt = MemoryType(args["memory_type"])
-    
-    memories = await typed_memory_store.query(
-        user_id=args["user_id"],
-        memory_type=mt,
-        min_strength=args.get("min_strength", 0.1),
-        limit=args.get("limit", 20),
-        tags=args.get("tags"),
-    )
-    
-    results = []
-    for mem in memories:
-        entry = {
-            "id": mem.id,
-            "type": mem.memory_type.value,
-            "content": mem.content,
-            "strength": round(mem.current_strength(), 3),
-            "confidence": round(mem.confidence, 3),
-            "tags": mem.tags,
-        }
-        if mem.memory_type.value == "episodic":
-            entry["emotional_valence"] = mem.emotional_valence
-            entry["context"] = mem.context
-        elif mem.memory_type.value == "belief":
-            entry["evidence_for"] = len(mem.evidence_for)
-            entry["evidence_against"] = len(mem.evidence_against)
-        elif mem.memory_type.value == "procedural":
-            entry["trigger"] = mem.trigger
-            entry["action"] = mem.action
-            entry["success_rate"] = (
-                round(mem.success_count / max(1, mem.success_count + mem.failure_count), 2)
-            )
-        results.append(entry)
-    
-    return [TextContent(type="text", text=compact_json({
-        "count": len(results),
-        "memories": results,
-    }))]
-
-
-async def handle_search_memories(args: Dict[str, Any]) -> List[TextContent]:
-    """Full-text search across typed memories."""
-    memories = await typed_memory_store.search(
-        user_id=args["user_id"],
-        query=args["query"],
-        limit=args.get("limit", 20),
-    )
-    
-    results = [{
-        "id": m.id,
-        "type": m.memory_type.value,
-        "content": m.content,
-        "strength": round(m.current_strength(), 3),
-        "confidence": round(m.confidence, 3),
-    } for m in memories]
-    
-    return [TextContent(type="text", text=compact_json({
-        "query": args["query"],
-        "count": len(results),
-        "results": results,
-    }))]
-
-
-async def handle_update_belief_mem(args: Dict[str, Any]) -> List[TextContent]:
-    """Update a belief with new evidence."""
-    belief = await typed_memory_store.update_belief(
-        belief_id=args["belief_id"],
-        evidence_type=args["evidence_type"],
-        evidence_id=args.get("evidence_id", ""),
-        confidence_delta=args["confidence_delta"],
-    )
-    
-    if not belief:
-        return [TextContent(type="text", text=compact_json({"error": "Belief not found or not a belief type"}))]
-    
-    return [TextContent(type="text", text=compact_json({
-        "updated": True,
-        "id": belief.id,
-        "content": belief.content,
-        "new_confidence": round(belief.confidence, 3),
-        "evidence_for": len(belief.evidence_for),
-        "evidence_against": len(belief.evidence_against),
-    }))]
-
-
-async def handle_record_procedure(args: Dict[str, Any]) -> List[TextContent]:
-    """Record procedure outcome."""
-    proc = await typed_memory_store.record_procedure_outcome(
-        procedure_id=args["procedure_id"],
-        success=args["success"],
-    )
-    
-    if not proc:
-        return [TextContent(type="text", text=compact_json({"error": "Procedure not found"}))]
-    
-    total = proc.success_count + proc.failure_count
-    return [TextContent(type="text", text=compact_json({
-        "updated": True,
-        "id": proc.id,
-        "trigger": proc.trigger,
-        "action": proc.action,
-        "success_count": proc.success_count,
-        "failure_count": proc.failure_count,
-        "success_rate": round(proc.success_count / max(1, total), 2),
-        "strength": round(proc.strength, 3),
-    }))]
-
-
-async def handle_consolidate(args: Dict[str, Any]) -> List[TextContent]:
-    """Run episodic → semantic consolidation."""
-    new_semantics = await typed_memory_store.consolidate_episodes(
-        user_id=args["user_id"],
-        min_episodes=args.get("min_episodes", 3),
-    )
-    
-    results = [{
-        "id": s.id,
-        "content": s.content,
-        "confidence": round(s.confidence, 3),
-        "consolidated_from": len(s.consolidated_from),
-    } for s in new_semantics]
-    
-    return [TextContent(type="text", text=compact_json({
-        "consolidated": len(results),
-        "new_semantic_memories": results,
-    }))]
-
-
-async def handle_memory_stats(args: Dict[str, Any]) -> List[TextContent]:
-    """Get typed memory statistics."""
-    stats = await typed_memory_store.get_stats(args["user_id"])
-    return [TextContent(type="text", text=compact_json(stats))]
-
-
-async def handle_detect_contradictions(args: Dict[str, Any]) -> List[TextContent]:
-    """Find contradicting memories."""
-    contradictions = await typed_memory_store.detect_contradictions(args["user_id"])
-    return [TextContent(type="text", text=compact_json({
-        "contradictions": contradictions,
-        "count": len(contradictions),
-        "action": "Review each pair and correct_memory or forget_memory the wrong one." if contradictions else "No contradictions found."
-    }))]
-
-
-async def handle_what_do_i_know(args: Dict[str, Any]) -> List[TextContent]:
-    """Synthesized cross-type retrieval for a topic."""
-    result = await typed_memory_store.what_do_i_know_about(
-        user_id=args["user_id"], topic=args["topic"],
-        limit=args.get("limit", 30),
-    )
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_auto_tag(args: Dict[str, Any]) -> List[TextContent]:
-    """Auto-tag all memories for a user."""
-    result = await typed_memory_store.auto_tag_all(args["user_id"])
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_correct_memory(args: Dict[str, Any]) -> List[TextContent]:
-    """Correct a memory's content."""
-    # Accept 'correction' as alias for 'new_content' (Claude sometimes uses this)
-    new_content = args.get("new_content") or args.get("correction", "")
-    if not new_content:
-        return [TextContent(type="text", text=compact_json({"error": "'new_content' is required"}))]
-    mem = await typed_memory_store.correct_memory(
-        memory_id=args["memory_id"], new_content=new_content,
-        reason=args.get("reason", ""), new_confidence=args.get("new_confidence"),
-    )
-    if not mem:
-        return [TextContent(type="text", text=compact_json({"error": "Memory not found"}))]
-    return [TextContent(type="text", text=compact_json({
-        "corrected": True, "id": mem.id, "new_content": mem.content,
-        "confidence": round(mem.confidence, 3), "correction_history": mem.context[:200],
-    }))]
-
-
-async def handle_forget_memory(args: Dict[str, Any]) -> List[TextContent]:
-    """Explicitly delete a memory."""
-    deleted = await typed_memory_store.forget_memory(
-        memory_id=args["memory_id"], reason=args.get("reason", ""),
-    )
-    return [TextContent(type="text", text=compact_json({
-        "forgotten": deleted, "id": args["memory_id"],
-    }))]
-
-
-async def handle_auto_prune(args: Dict[str, Any]) -> List[TextContent]:
-    """Auto-prune decayed memories."""
-    result = await typed_memory_store.auto_prune(
-        user_id=args["user_id"],
-        strength_threshold=args.get("strength_threshold", 0.05),
-    )
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_get_relevant_context(args: Dict[str, Any]) -> List[TextContent]:
-    """Pre-fetch conversation-relevant memories."""
-    result = await typed_memory_store.get_relevant_context(
-        user_id=args["user_id"],
-        conversation_topic=args["conversation_topic"],
-        limit=args.get("limit", 15),
-    )
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_user_timeline(args: Dict[str, Any]) -> List[TextContent]:
-    """Chronological memory timeline."""
-    result = await typed_memory_store.user_timeline(
-        user_id=args["user_id"],
-        limit=args.get("limit", 20),
-        offset=args.get("offset", 0),
-    )
-    return [TextContent(type="text", text=compact_json(result))]
-
-
-async def handle_semantic_search(args: Dict[str, Any]) -> List[TextContent]:
-    """Semantic similarity search using embeddings."""
-    if not embedding_store:
-        return [TextContent(type="text", text=compact_json({"error": "Embedding store not initialized"}))]
-    
-    hits = await embedding_store.search(
-        query=args["query"],
-        limit=args.get("limit", 10),
-        min_similarity=args.get("min_similarity", 0.3),
-    )
-    
-    # Enrich with memory content
-    results = []
-    for hit in hits:
-        mem = await typed_memory_store.get(hit["memory_id"])
-        if mem:
-            results.append({
-                "id": mem.id,
-                "type": mem.memory_type.value,
-                "content": mem.content,
-                "similarity": hit["similarity"],
-                "strength": round(mem.current_strength(), 3),
-                "confidence": round(mem.confidence, 3),
-                "tags": mem.tags,
-            })
-    
-    return [TextContent(type="text", text=compact_json({
-        "query": args["query"], "results": results, "count": len(results),
-    }))]
-
-
-async def handle_index_embeddings(args: Dict[str, Any]) -> List[TextContent]:
-    """Batch-index all typed memories for a user."""
-    if not embedding_store:
-        return [TextContent(type="text", text=compact_json({"error": "Embedding store not initialized"}))]
-    
-    # Get all memories for user
-    all_mems = await typed_memory_store.query(args["user_id"], limit=10000)
-    
-    batch = []
-    for mem in all_mems:
-        text = mem.content
-        if mem.trigger:
-            text += f" | trigger: {mem.trigger}"
-        if mem.action:
-            text += f" | action: {mem.action}"
-        batch.append((mem.id, text))
-    
-    indexed = await embedding_store.index_batch(batch)
-    stats = await embedding_store.get_stats()
-    
-    return [TextContent(type="text", text=compact_json({
-        "newly_indexed": indexed,
-        "total_memories": len(all_mems),
-        "total_indexed": stats["indexed_count"],
-        "model": stats["model"],
-    }))]
-
-
-async def handle_find_similar(args: Dict[str, Any]) -> List[TextContent]:
-    """Find memories similar to a given memory."""
-    if not embedding_store:
-        return [TextContent(type="text", text=compact_json({"error": "Embedding store not initialized"}))]
-    
-    hits = await embedding_store.find_similar(
-        memory_id=args["memory_id"],
-        limit=args.get("limit", 5),
-        min_similarity=args.get("min_similarity", 0.5),
-    )
-    
-    # Enrich with memory content
-    results = []
-    for hit in hits:
-        mem = await typed_memory_store.get(hit["memory_id"])
-        if mem:
-            results.append({
-                "id": mem.id,
-                "type": mem.memory_type.value,
-                "content": mem.content,
-                "similarity": hit["similarity"],
-                "tags": mem.tags,
-            })
-    
-    return [TextContent(type="text", text=compact_json({
-        "source_id": args["memory_id"], "similar": results, "count": len(results),
-    }))]
 
 
 async def main():

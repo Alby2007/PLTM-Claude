@@ -512,12 +512,14 @@ class AttentionMemoryRetrieval:
                 emb = emb / norm
             return emb
         
-        # Fallback: hash-based bag-of-words
+        # Fallback: hash-based bag-of-words (stable hash — Python's hash() is
+        # salted per-process, which would scramble buckets across restarts)
+        import hashlib
         words = text.lower().split()
         embedding = np.zeros(dim)
-        
+
         for word in words:
-            h = hash(word) % dim
+            h = int.from_bytes(hashlib.sha256(word.encode()).digest()[:4], "little") % dim
             embedding[h] += 1.0
         
         norm = np.linalg.norm(embedding)

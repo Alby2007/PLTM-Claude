@@ -61,6 +61,10 @@ class DecayEngine:
 
             if abs(new_strength - old_strength) > 0.001:
                 mem.strength = new_strength
+                # Re-base last_accessed — the decay was just "banked" into
+                # strength. Without this, every apply_decay call re-applies
+                # the same elapsed period and memories decay N times too fast.
+                mem.last_accessed = time.time()
                 # Persist without re-running jury
                 await self.store.store(mem, bypass_jury=True)
                 updated += 1
@@ -102,10 +106,16 @@ class DecayEngine:
             future_strength = mem.strength * math.pow(2, -future_hours / params.half_life_hours)
             future_strength = max(params.min_strength, future_strength)
 
-            if future_strength < 0.2 and current >= 0.2:
-                # Will cross threshold
+            # "Weak" is per-type: a memory is forecast when it will reach its
+            # floor (or 0.2 for types whose floor is lower). A hardcoded 0.2
+            # could never trigger for semantic/procedural — their floors are
+            # at or above 0.2 — so they'd silently never be forecast.
+            weak_threshold = max(0.2, params.min_strength)
+
+            if future_strength <= weak_threshold and current > weak_threshold:
+                # Will cross threshold — solve S0 * 2^(-t/hl) = weak_threshold
                 hours_to_threshold = params.half_life_hours * math.log2(
-                    mem.strength / 0.2) - (time.time() - mem.last_accessed) / 3600
+                    mem.strength / weak_threshold) - (time.time() - mem.last_accessed) / 3600
                 forecasts.append({
                     "id": mem.id,
                     "content": mem.content[:80],
@@ -438,15 +448,53 @@ class ConflictSurfacer:
         self.store = store
         self.embeddings = embedding_store
         self._pending_conflicts: List[Dict] = []
+        self._table_ready = False
+
+    async def _ensure_table(self):
+        """Pending conflicts live in the DB — an in-memory list loses them
+        on restart, leaving users unable to resolve previously surfaced items."""
+        if self._table_ready:
+            return
+        await self.store._conn.execute("""
+            CREATE TABLE IF NOT EXISTS pending_conflicts (
+                conflict_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                memory_a_id TEXT NOT NULL,
+                memory_b_id TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                status TEXT DEFAULT 'open',
+                created_at REAL NOT NULL
+            )""")
+        await self.store._conn.commit()
+        self._table_ready = True
+
+    async def _load_pending(self, user_id: str):
+        """Sync the in-memory cache from durable storage."""
+        await self._ensure_table()
+        cursor = await self.store._conn.execute(
+            "SELECT payload FROM pending_conflicts WHERE user_id = ? AND status = 'open'",
+            (user_id,))
+        rows = await cursor.fetchall()
+        self._pending_conflicts = [json.loads(r[0]) for r in rows]
 
     async def detect_and_surface(self, user_id: str) -> List[Dict[str, Any]]:
         """
         Find conflicts and return them as actionable items for the user.
         """
+        await self._load_pending(user_id)
+        # Pairs already surfaced shouldn't be re-added on every detection pass
+        known_pairs = {
+            frozenset((c["memory_a"]["id"], c["memory_b"]["id"]))
+            for c in self._pending_conflicts
+        }
+
         contradictions = await self.store.detect_contradictions(user_id)
         surfaced = []
 
         for c in contradictions:
+            pair = frozenset((c["memory_a"]["id"], c["memory_b"]["id"]))
+            if pair in known_pairs:
+                continue
             conflict = {
                 "conflict_id": str(uuid4())[:8],
                 "memory_a": {
@@ -471,6 +519,17 @@ class ConflictSurfacer:
             }
             surfaced.append(conflict)
             self._pending_conflicts.append(conflict)
+            await self.store._conn.execute(
+                """INSERT OR REPLACE INTO pending_conflicts
+                   (conflict_id, user_id, memory_a_id, memory_b_id, payload, status, created_at)
+                   VALUES (?, ?, ?, ?, ?, 'open', ?)""",
+                (conflict["conflict_id"], user_id,
+                 c["memory_a"]["id"], c["memory_b"]["id"],
+                 json.dumps(conflict), time.time()))
+            known_pairs.add(pair)
+
+        if surfaced:
+            await self.store._conn.commit()
 
         return surfaced
 
@@ -480,6 +539,7 @@ class ConflictSurfacer:
         """
         Resolve a surfaced conflict based on user choice.
         """
+        await self._load_pending(user_id)
         conflict = None
         for c in self._pending_conflicts:
             if c["conflict_id"] == conflict_id:
@@ -518,6 +578,10 @@ class ConflictSurfacer:
 
         self._pending_conflicts = [
             c for c in self._pending_conflicts if c["conflict_id"] != conflict_id]
+        await self.store._conn.execute(
+            "UPDATE pending_conflicts SET status = 'resolved' WHERE conflict_id = ?",
+            (conflict_id,))
+        await self.store._conn.commit()
         result["conflict_id"] = conflict_id
         result["action"] = action
         return result
@@ -575,7 +639,10 @@ class MemoryClusterer:
             if len(cluster_mems) >= min_cluster_size:
                 # Determine cluster topic from most common tags
                 tag_counts: Dict[str, int] = {}
+                type_counts: Dict[str, int] = {}
                 for m in cluster_mems:
+                    type_counts[m.memory_type.value] = type_counts.get(
+                        m.memory_type.value, 0) + 1
                     for t in m.tags:
                         tag_counts[t] = tag_counts.get(t, 0) + 1
                 top_tags = sorted(tag_counts, key=tag_counts.get, reverse=True)[:3]
@@ -584,8 +651,7 @@ class MemoryClusterer:
                     "cluster_id": str(uuid4())[:8],
                     "topic": ", ".join(top_tags) if top_tags else "misc",
                     "size": len(cluster_mems),
-                    "types": dict(defaultdict(int, {
-                        m.memory_type.value: 1 for m in cluster_mems})),
+                    "types": type_counts,
                     "avg_strength": round(
                         sum(m.current_strength() for m in cluster_mems) / len(cluster_mems), 3),
                     "memories": [{

@@ -343,7 +343,7 @@ class TestStatistics:
     
     def test_stats_tracking(self, decay_engine, create_atom):
         """Should track operation statistics"""
-        atom = create_atom()
+        atom = create_atom(graph=GraphType.UNSUBSTANTIATED)
         
         # Perform operations
         decay_engine.calculate_stability(atom)

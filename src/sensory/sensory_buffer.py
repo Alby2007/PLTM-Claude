@@ -143,14 +143,18 @@ class SensoryBuffer:
         
         return history
     
-    def get_timeline(self, seconds: float = 10.0) -> Dict[str, Any]:
+    def get_timeline(self, seconds: float = 10.0, modality: Optional[str] = None) -> Dict[str, Any]:
         """
         Get temporal timeline of recent observations.
+        
+        Args:
+            seconds: How far back to look
+            modality: Filter by "visual", "audio", or None for both
         
         Returns:
             Dictionary with timeline events and temporal patterns
         """
-        history = self.get_history(seconds)
+        history = self.get_history(seconds, modality=modality)
         
         if not history:
             return {
@@ -173,11 +177,17 @@ class SensoryBuffer:
         
         visual_count = sum(1 for obs in history if obs.modality == "visual")
         audio_count = sum(1 for obs in history if obs.modality == "audio")
-        
+        span = (history[-1].timestamp - history[0].timestamp) if len(history) > 1 else 0.0
+
         return {
+            "duration_seconds": span,
             "events": events,
+            "visual_count": visual_count,
+            "audio_count": audio_count,
+            # Short-form aliases kept for backward compatibility
             "n_vis": visual_count,
-            "n_aud": audio_count
+            "n_aud": audio_count,
+            "temporal_density": len(history) / span if span > 0 else float(len(history)),
         }
     
     def clear(self) -> None:

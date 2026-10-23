@@ -201,6 +201,7 @@ class TestSensoryMemoryIntegration:
             sensory_atoms = [a for a in atoms if a.atom_type == AtomType.SENSORY_OBSERVATION]
             assert len(sensory_atoms) > 0
         finally:
+            await store.close()
             os.unlink(temp_db.name)
     
     async def test_store_audio_observation(self):
@@ -233,6 +234,7 @@ class TestSensoryMemoryIntegration:
             
             assert len(atom_ids) > 0
         finally:
+            await store.close()
             os.unlink(temp_db.name)
     
     async def test_store_cross_modal_observation(self):
@@ -270,6 +272,7 @@ class TestSensoryMemoryIntegration:
             
             assert len(atom_ids) > 0
         finally:
+            await store.close()
             os.unlink(temp_db.name)
     
     async def test_get_recent_sensory_atoms(self):
@@ -305,6 +308,7 @@ class TestSensoryMemoryIntegration:
             assert len(recent) > 0
             assert all(a.atom_type == AtomType.SENSORY_OBSERVATION for a in recent)
         finally:
+            await store.close()
             os.unlink(temp_db.name)
 
 

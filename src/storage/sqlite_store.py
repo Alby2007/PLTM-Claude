@@ -27,6 +27,11 @@ class SQLiteGraphStore:
         self.db_path = Path(db_path)
         self._conn: Optional[aiosqlite.Connection] = None
 
+    async def _ensure_connected(self) -> None:
+        """Lazily establish the connection on first use."""
+        if self._conn is None:
+            await self.connect()
+
     async def connect(self) -> None:
         """Establish database connection"""
         # Create parent directory if needed
@@ -48,8 +53,7 @@ class SQLiteGraphStore:
 
     async def _setup_schema(self) -> None:
         """Create tables with JSON support and graph-ready structure"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         # Main atoms table
         await self._conn.execute("""
@@ -153,8 +157,7 @@ class SQLiteGraphStore:
 
     async def insert_atom(self, atom: MemoryAtom) -> None:
         """Insert or update atom with JSON serialization"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         # Serialize complex fields to JSON
         metadata = {
@@ -222,8 +225,7 @@ class SQLiteGraphStore:
         line_range: Optional[str] = None
     ) -> None:
         """Insert provenance record for a claim"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
         
         await self._conn.execute(
             """
@@ -242,8 +244,7 @@ class SQLiteGraphStore:
 
     async def get_provenance_for_claim(self, claim_id: str) -> List[Dict[str, Any]]:
         """Get all provenance records for a claim"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
         
         cursor = await self._conn.execute(
             "SELECT * FROM provenance WHERE claim_id = ?",
@@ -266,14 +267,16 @@ class SQLiteGraphStore:
                 "confidence": row[9],
                 "arxiv_id": row[11],
                 "doi": row[12],
-                "commit_sha": row[13]
+                "commit_sha": row[13],
+                "authors": row[10],
+                "file_path": row[14],
+                "line_range": row[15],
             })
         return result
 
     async def get_unverified_claims(self) -> List[str]:
         """Get claim IDs that only have internal provenance"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
         
         cursor = await self._conn.execute("""
             SELECT DISTINCT a.id FROM atoms a
@@ -285,8 +288,7 @@ class SQLiteGraphStore:
 
     async def get_provenance_stats(self) -> Dict[str, Any]:
         """Get provenance statistics"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
         
         cursor = await self._conn.execute(
             "SELECT source_type, COUNT(*) FROM provenance GROUP BY source_type"
@@ -303,8 +305,7 @@ class SQLiteGraphStore:
 
     async def get_atom(self, atom_id: UUID) -> Optional[MemoryAtom]:
         """Retrieve atom by ID"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         cursor = await self._conn.execute(
             "SELECT * FROM atoms WHERE id = ?",
@@ -328,8 +329,7 @@ class SQLiteGraphStore:
         
         This is the critical query for conflict detection.
         """
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         if exclude_historical:
             query = """
@@ -360,8 +360,7 @@ class SQLiteGraphStore:
         
         Ordered by confidence and recency.
         """
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         if subject:
             query = """
@@ -392,8 +391,7 @@ class SQLiteGraphStore:
         min_confidence: float = 0.0
     ) -> list[MemoryAtom]:
         """Get unsubstantiated atoms (shadow buffer)"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         if subject:
             query = """
@@ -420,8 +418,7 @@ class SQLiteGraphStore:
 
     async def promote_atom(self, atom_id: UUID) -> None:
         """Move atom to substantiated graph"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         await self._conn.execute(
             """
@@ -438,8 +435,7 @@ class SQLiteGraphStore:
 
     async def archive_atom(self, atom_id: UUID) -> None:
         """Move atom to historical archive"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         await self._conn.execute(
             "UPDATE atoms SET graph = 'historical' WHERE id = ?",
@@ -451,8 +447,7 @@ class SQLiteGraphStore:
 
     async def delete_atom(self, atom_id: UUID) -> None:
         """Permanently delete atom (use sparingly)"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         await self._conn.execute(
             "DELETE FROM atoms WHERE id = ?",
@@ -472,8 +467,7 @@ class SQLiteGraphStore:
         
         Updates both atoms' related_atoms lists.
         """
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         # Update source atom
         await self._conn.execute(
@@ -525,8 +519,7 @@ class SQLiteGraphStore:
         For MVP: depth=1 only (direct relationships).
         For full version: Use recursive CTE for depth>1.
         """
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         if depth > 1:
             logger.warning("Depth > 1 not implemented in MVP, using depth=1")
@@ -550,8 +543,7 @@ class SQLiteGraphStore:
 
     async def search_objects(self, query: str, limit: int = 10) -> list[MemoryAtom]:
         """Full-text search on object field using FTS5"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         cursor = await self._conn.execute(
             """
@@ -570,8 +562,7 @@ class SQLiteGraphStore:
 
     async def get_stats(self) -> dict[str, int]:
         """Get database statistics"""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
 
         stats = {}
 
@@ -807,8 +798,7 @@ class SQLiteGraphStore:
 
     async def _get_all_from_graph(self, graph_name: str) -> list[MemoryAtom]:
         """Helper: Get all atoms from a specific graph."""
-        if not self._conn:
-            raise RuntimeError("Database not connected")
+        await self._ensure_connected()
             
         cursor = await self._conn.execute(
             f"SELECT * FROM atoms WHERE graph = ?",
@@ -828,3 +818,35 @@ class SQLiteGraphStore:
     async def add_atom(self, atom: MemoryAtom) -> None:
         """Alias for insert_atom (MCP server compatibility)"""
         await self.insert_atom(atom)
+
+    async def update_atom(self, atom: MemoryAtom) -> None:
+        """Update an existing atom (upsert semantics — same as insert)."""
+        await self.insert_atom(atom)
+
+    async def get_atoms_by_graph(
+        self,
+        graph: GraphType,
+        subject: Optional[str] = None,
+    ) -> list[MemoryAtom]:
+        """Get all atoms in a given graph, optionally filtered by subject."""
+        await self._ensure_connected()
+
+        if subject is not None:
+            cursor = await self._conn.execute(
+                "SELECT * FROM atoms WHERE graph = ? AND subject = ?",
+                (graph.value, subject),
+            )
+        else:
+            cursor = await self._conn.execute(
+                "SELECT * FROM atoms WHERE graph = ?",
+                (graph.value,),
+            )
+        rows = await cursor.fetchall()
+
+        atoms = []
+        for row in rows:
+            try:
+                atoms.append(self._row_to_atom(row))
+            except Exception:
+                continue  # Skip corrupt atoms
+        return atoms

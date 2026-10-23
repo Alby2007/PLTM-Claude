@@ -13,6 +13,7 @@ Token-efficient: FTS-first matching (zero LLM cost), compact responses,
 LLM only for suggest_searches when explicitly triggered.
 """
 
+import hashlib
 import json
 import os
 from datetime import datetime
@@ -106,7 +107,10 @@ class ResearchAgenda:
         await self._ensure_table()
         
         now = datetime.now().isoformat()
-        qid = f"rq_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hash(question) % 10000:04d}"
+        # Stable hash — Python's hash() is salted per-process, so the same
+        # question would get a different id suffix on every restart
+        qhash = int.from_bytes(hashlib.sha256(question.encode()).digest()[:2], "little") % 10000
+        qid = f"rq_{datetime.now().strftime('%Y%m%d%H%M%S')}_{qhash:04d}"
         
         await self.store._conn.execute(
             """INSERT OR REPLACE INTO research_questions

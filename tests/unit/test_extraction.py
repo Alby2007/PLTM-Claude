@@ -42,7 +42,7 @@ class TestRuleBasedExtractor:
         assert len(atoms) == 1
         assert atoms[0].predicate == "works_at"
         assert atoms[0].object == "Anthropic"
-        assert atoms[0].atom_type == AtomType.RELATION
+        assert atoms[0].atom_type == AtomType.AFFILIATION
 
     def test_extract_likes(self) -> None:
         """Extract preference patterns"""

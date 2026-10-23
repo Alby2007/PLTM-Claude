@@ -27,13 +27,13 @@ async def setup_pipeline():
 @pytest.mark.asyncio
 async def test_user_profile_building(setup_pipeline):
     """Test building user profile from memory"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     rag = MemoryAwareRAG(pipeline, user_id)
     
     # Add user data
-    await pipeline.process_message(user_id, "I love machine learning")
-    await pipeline.process_message(user_id, "I'm an expert in Python")
+    await pipeline.process(user_id, "I love machine learning")
+    await pipeline.process(user_id, "I'm an expert in Python")
     
     # Build profile
     await rag.build_user_profile()
@@ -47,12 +47,12 @@ async def test_user_profile_building(setup_pipeline):
 @pytest.mark.asyncio
 async def test_query_augmentation(setup_pipeline):
     """Test query augmentation with user context"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     rag = MemoryAwareRAG(pipeline, user_id)
     
     # Add expertise
-    await pipeline.process_message(user_id, "I'm an expert in Python")
+    await pipeline.process(user_id, "I'm an expert in Python")
     
     # Augment query
     augmented = await rag.augment_query("python tutorial")
@@ -67,12 +67,12 @@ async def test_query_augmentation(setup_pipeline):
 @pytest.mark.asyncio
 async def test_result_personalization(setup_pipeline):
     """Test document personalization"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     rag = MemoryAwareRAG(pipeline, user_id)
     
     # Add interests
-    await pipeline.process_message(user_id, "I love data science")
+    await pipeline.process(user_id, "I love data science")
     
     # Mock documents
     docs = [
@@ -93,12 +93,12 @@ async def test_result_personalization(setup_pipeline):
 @pytest.mark.asyncio
 async def test_personalized_answer_generation(setup_pipeline):
     """Test personalized answer generation"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     rag = MemoryAwareRAG(pipeline, user_id)
     
     # Add expertise
-    await pipeline.process_message(user_id, "I'm an expert in Python")
+    await pipeline.process(user_id, "I'm an expert in Python")
     
     # Generate answer
     answer, notes = await rag.generate_personalized_answer(
@@ -116,13 +116,13 @@ async def test_personalized_answer_generation(setup_pipeline):
 @pytest.mark.asyncio
 async def test_rag_experiment(setup_pipeline):
     """Test full memory-aware RAG experiment"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     experiment = MemoryAwareRAGExperiment(pipeline, user_id)
     
     # Add user data
-    await pipeline.process_message(user_id, "I love machine learning")
-    await pipeline.process_message(user_id, "I'm an expert in Python")
+    await pipeline.process(user_id, "I love machine learning")
+    await pipeline.process(user_id, "I'm an expert in Python")
     
     # Run experiments
     aug_result = await experiment.run_query_augmentation_experiment(

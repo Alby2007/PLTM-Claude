@@ -70,8 +70,10 @@ class WriteLane:
             atom.confidence += decision.confidence_adjustment
             atom.confidence = max(0.0, min(1.0, atom.confidence))
 
-            # Store jury decision in history
-            atom.jury_history.append(decision)
+            # Store jury decision in history (dedupe — deliberate_batch may
+            # already have recorded this exact decision)
+            if not atom.jury_history or atom.jury_history[-1] is not decision:
+                atom.jury_history.append(decision)
 
             # Check for conflicts (same predicate)
             conflict_atoms = await self.conflict_detector.find_conflicts(atom)
@@ -86,6 +88,16 @@ class WriteLane:
                 conflicts += len(all_conflicts)
                 await self._handle_conflicts(atom, all_conflicts)
                 self.conflicts_resolved += len(all_conflicts)
+
+            # Reconciliation can reject the candidate outright — don't store it
+            if "rejected_by_reconciliation" in atom.flags:
+                rejected += 1
+                continue
+
+            # Preference rankings are singular per subject: a new "X over Y"
+            # statement supersedes all prior ranking statements.
+            if self._is_ranking_atom(atom):
+                await self._supersede_prior_rankings(atom)
 
             # Check promotion eligibility (tiered promotion)
             if atom.promotion_eligible:
@@ -120,11 +132,10 @@ class WriteLane:
         Sets:
         - graph = SUBSTANTIATED
         - strength = 1.0 (no decay)
-        - confidence = 1.0
+        Preserves the jury-calibrated confidence rather than forcing 1.0.
         """
         atom.graph = GraphType.SUBSTANTIATED
         atom.strength = 1.0
-        atom.confidence = 1.0
 
         await self.store.insert_atom(atom)
 
@@ -238,6 +249,32 @@ class WriteLane:
         elif decision.action == ReconciliationAction.MERGE:
             # Future: Merge information from both atoms
             logger.warning("MERGE action not implemented in MVP")
+
+    @staticmethod
+    def _is_ranking_atom(atom: MemoryAtom) -> bool:
+        """Atoms expressing an ordered preference ("X over Y")"""
+        return atom.predicate == "prefers_over" or (
+            atom.predicate == "prefers" and " over " in atom.object.lower()
+        )
+
+    async def _supersede_prior_rankings(self, candidate: MemoryAtom) -> None:
+        """Archive prior ranking atoms for the same subject"""
+        for predicate in ("prefers_over", "prefers"):
+            existing = await self.store.find_by_triple(
+                candidate.subject, predicate, exclude_historical=True
+            )
+            for atom in existing:
+                if atom.id == candidate.id or " over " not in atom.object.lower():
+                    continue
+                atom.graph = GraphType.HISTORICAL
+                atom.superseded_by = candidate.id
+                await self.store.insert_atom(atom)
+                candidate.supersedes = atom.id
+                logger.info(
+                    "Ranking superseded: [{old}] replaced by [{new}]",
+                    old=atom.object[:40],
+                    new=candidate.object[:40],
+                )
 
     def get_stats(self) -> dict:
         """Get write lane statistics"""

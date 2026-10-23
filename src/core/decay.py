@@ -82,7 +82,11 @@ class DecayEngine:
         
         # Strength parameter (adjusted by confidence)
         # Higher confidence = stronger memory = slower decay
-        strength = decay_rate * atom.confidence * 100  # Scale to hours
+        # S = conf * 8 / rate² keeps ordering across widely different decay
+        # rates: ENTITY (0.01) persists for months while STATE (0.50) fades
+        # within a day. Linear rate scaling cannot produce that spread.
+        confidence = max(atom.confidence, 0.01)
+        strength = (confidence * 8.0) / max(decay_rate * decay_rate, 1e-9)
         
         # Ebbinghaus forgetting curve
         stability = math.exp(-hours_elapsed / strength)

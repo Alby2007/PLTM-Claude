@@ -41,13 +41,16 @@ class SensoryMemoryIntegrator:
             List of atom IDs created
         """
         atom_ids = []
-        timestamp = observation.get("timestamp", time.time())
-        
+        timestamp = observation.get("timestamp", observation.get("ts", time.time()))
+
         # Store face detections
         for i, face in enumerate(observation.get("faces", [])):
             emotion = face.get("emotion", "neutral")
-            confidence = face.get("confidence", 0.7)
-            
+            confidence = face.get("confidence", face.get("conf", 0.7))
+            # Camera emits "position" only since the schema fix; older
+            # observations may lack it entirely
+            pos = face.get("position") or {}
+
             # Create sensory observation atom
             atom = MemoryAtom(
                 atom_type=AtomType.SENSORY_OBSERVATION,
@@ -62,7 +65,7 @@ class SensoryMemoryIntegrator:
                     "visual",
                     "face_detection",
                     f"timestamp:{timestamp}",
-                    f"position:x{face['position']['x']}y{face['position']['y']}"
+                    f"position:x{pos.get('x', 0)}y{pos.get('y', 0)}"
                 ],
                 graph=GraphType.UNSUBSTANTIATED
             )
@@ -73,8 +76,8 @@ class SensoryMemoryIntegrator:
         # Store scene description
         scene = observation.get("scene", {})
         if scene:
-            description = scene.get("description", "")
-            
+            description = scene.get("description", scene.get("desc", ""))
+
             atom = MemoryAtom(
                 atom_type=AtomType.SENSORY_OBSERVATION,
                 subject=user_id,
@@ -89,7 +92,7 @@ class SensoryMemoryIntegrator:
                     "scene_description",
                     f"timestamp:{timestamp}",
                     f"brightness:{scene.get('brightness', 0)}",
-                    f"motion:{scene.get('motion_detected', False)}"
+                    f"motion:{scene.get('motion_detected', scene.get('motion', False))}"
                 ],
                 graph=GraphType.UNSUBSTANTIATED
             )
@@ -111,11 +114,11 @@ class SensoryMemoryIntegrator:
             List of atom IDs created
         """
         atom_ids = []
-        timestamp = observation.get("timestamp", time.time())
-        
+        timestamp = observation.get("timestamp", observation.get("ts", time.time()))
+
         # Store speech transcript if detected
-        if observation.get("speech_detected"):
-            transcript = observation.get("transcript", "")
+        if observation.get("speech_detected", observation.get("speech", False)):
+            transcript = observation.get("transcript", observation.get("text", ""))
             tone = observation.get("tone", "neutral")
             confidence = observation.get("confidence", 0.7)
             
@@ -145,8 +148,8 @@ class SensoryMemoryIntegrator:
         # Store ambient sound characteristics
         ambient = observation.get("ambient", {})
         if ambient:
-            sound_type = ambient.get("sound_type", "unknown")
-            volume = ambient.get("volume", "quiet")
+            sound_type = ambient.get("sound_type", ambient.get("type", "unknown"))
+            volume = ambient.get("volume", ambient.get("vol", "quiet"))
             
             atom = MemoryAtom(
                 atom_type=AtomType.SENSORY_OBSERVATION,

@@ -97,6 +97,11 @@ class InferenceEngine:
                     "conflicts_with": ["lives_in", "!$1"],
                     "explanation": "Cannot live in multiple cities simultaneously"
                 },
+                {
+                    "pattern": ["located_at", "*"],
+                    "conflicts_with": ["located_at", "!$1"],
+                    "explanation": "Cannot live in multiple cities simultaneously"
+                },
             ],
             
             # Logical impossibilities
@@ -244,7 +249,7 @@ class InferenceEngine:
                         company_location = atom2.object
                         
                         # Check if new atom is about different location
-                        if (new_atom.predicate == "lives_in" and 
+                        if (new_atom.predicate in ("lives_in", "located_at") and
                             new_atom.object != company_location):
                             
                             conflict = ConflictChain(

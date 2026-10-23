@@ -8,8 +8,10 @@ This validates Hypothesis 1: Jury deliberation > single-LLM
 import asyncio
 from pathlib import Path
 
-import httpx
 import pytest
+
+from src.pipeline.memory_pipeline import MemoryPipeline
+from src.storage.sqlite_store import SQLiteGraphStore
 
 # Test cases for conflict resolution
 CONFLICT_TEST_CASES = [
@@ -489,42 +491,49 @@ class TestConflictResolutionBenchmark:
         total = len(CONFLICT_TEST_CASES)
         results = []
 
-        async with httpx.AsyncClient(
-            base_url="http://localhost:8000", timeout=30.0
-        ) as client:
-            for case in CONFLICT_TEST_CASES:
-                test_user = f"benchmark_{case['id']}"
+        # Run the real pipeline in-process (was: HTTP calls to localhost:8000)
+        store = SQLiteGraphStore(":memory:")
+        pipeline = MemoryPipeline(store)
 
-                # Process both statements
-                for stmt in case["statements"]:
-                    response = await client.post(
-                        "/process",
-                        json={
-                            "user_id": test_user,
-                            "message": stmt,
-                            "session_id": f"bench_{case['id']}",
-                        },
-                    )
-                    assert response.status_code == 200
+        for case in CONFLICT_TEST_CASES:
+            test_user = f"benchmark_{case['id']}"
 
-                # Check final memory state
-                memory_response = await client.get(f"/memory/{test_user}")
-                memory = memory_response.json()
-
-                # Evaluate result
-                is_correct = self._evaluate_result(case, memory)
-                if is_correct:
-                    correct += 1
-
-                results.append(
-                    {
-                        "case": case["id"],
-                        "description": case["description"],
-                        "expected": case["expected_action"],
-                        "correct": is_correct,
-                        "facts_count": memory["substantiated_count"],
-                    }
+            # Process all statements through extract -> jury -> write lane
+            for stmt in case["statements"]:
+                await pipeline.process(
+                    test_user, stmt, session_id=f"bench_{case['id']}"
                 )
+
+            # Check final memory state (substantiated facts only)
+            atoms = await store.get_substantiated_atoms(subject=test_user)
+            memory = {
+                "facts": [
+                    {
+                        "predicate": a.predicate,
+                        "object": a.object,
+                        "confidence": a.confidence,
+                    }
+                    for a in atoms
+                ],
+                "substantiated_count": len(atoms),
+            }
+
+            # Evaluate result
+            is_correct = self._evaluate_result(case, memory)
+            if is_correct:
+                correct += 1
+
+            results.append(
+                {
+                    "case": case["id"],
+                    "description": case["description"],
+                    "expected": case["expected_action"],
+                    "correct": is_correct,
+                    "facts_count": memory["substantiated_count"],
+                }
+            )
+
+        await store.close()
 
         accuracy = correct / total
         

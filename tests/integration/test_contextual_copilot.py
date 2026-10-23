@@ -27,13 +27,13 @@ async def setup_pipeline():
 @pytest.mark.asyncio
 async def test_preference_learning(setup_pipeline):
     """Test learning coding preferences"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     copilot = ContextualCopilot(pipeline, user_id)
     
     # Add preferences
-    await pipeline.process_message(user_id, "I prefer spaces for indentation")
-    await pipeline.process_message(user_id, "I love React")
+    await pipeline.process(user_id, "I prefer spaces for indentation")
+    await pipeline.process(user_id, "I love React")
     
     # Learn preferences
     await copilot.learn_preferences()
@@ -47,12 +47,12 @@ async def test_preference_learning(setup_pipeline):
 @pytest.mark.asyncio
 async def test_code_suggestion(setup_pipeline):
     """Test personalized code suggestions"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     copilot = ContextualCopilot(pipeline, user_id)
     
     # Add preferences
-    await pipeline.process_message(user_id, "I prefer camelCase")
+    await pipeline.process(user_id, "I prefer camelCase")
     
     # Get suggestion
     suggestion = await copilot.suggest_code(
@@ -70,12 +70,12 @@ async def test_code_suggestion(setup_pipeline):
 @pytest.mark.asyncio
 async def test_antipattern_detection(setup_pipeline):
     """Test antipattern detection"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     copilot = ContextualCopilot(pipeline, user_id)
     
     # Add past mistake
-    await pipeline.process_message(user_id, "I made a mistake with async await")
+    await pipeline.process(user_id, "I made a mistake with async await")
     
     # Detect antipatterns
     code = "async function test() { await something(); }"
@@ -88,14 +88,14 @@ async def test_antipattern_detection(setup_pipeline):
 @pytest.mark.asyncio
 async def test_pattern_tracking(setup_pipeline):
     """Test coding pattern tracking"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     copilot = ContextualCopilot(pipeline, user_id)
     
     # Add usage patterns
-    await pipeline.process_message(user_id, "I use React")
-    await pipeline.process_message(user_id, "I use React for projects")
-    await pipeline.process_message(user_id, "I prefer React")
+    await pipeline.process(user_id, "I use React")
+    await pipeline.process(user_id, "I use React for projects")
+    await pipeline.process(user_id, "I prefer React")
     
     # Track patterns
     patterns = await copilot.track_coding_patterns()
@@ -107,14 +107,14 @@ async def test_pattern_tracking(setup_pipeline):
 @pytest.mark.asyncio
 async def test_copilot_experiment(setup_pipeline):
     """Test full contextual copilot experiment"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     experiment = ContextualCopilotExperiment(pipeline, user_id)
     
     # Add coding data
-    await pipeline.process_message(user_id, "I prefer spaces")
-    await pipeline.process_message(user_id, "I use React")
-    await pipeline.process_message(user_id, "I use React often")
+    await pipeline.process(user_id, "I prefer spaces")
+    await pipeline.process(user_id, "I use React")
+    await pipeline.process(user_id, "I use React often")
     
     # Run experiments
     pref_result = await experiment.run_preference_learning_experiment()

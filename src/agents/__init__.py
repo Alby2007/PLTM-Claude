@@ -1,11 +1,5 @@
-"""AI agents that leverage the memory system for lifelong learning"""
+"""AI agents that leverage the memory system for lifelong learning.
 
-from src.agents.lifelong_learning_agent import (
-    LifelongLearningAgent,
-    LifelongLearningExperiment
-)
-
-__all__ = [
-    'LifelongLearningAgent',
-    'LifelongLearningExperiment'
-]
+Note: contextual_copilot, memory_aware_rag, personalized_tutor and
+temporal_reasoning are importable directly from their modules.
+"""

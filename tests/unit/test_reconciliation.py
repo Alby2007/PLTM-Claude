@@ -96,8 +96,8 @@ class TestConflictDetector:
         existing = MemoryAtom(
             atom_type=AtomType.RELATION,
             subject="user_001",
-            predicate="likes",
-            object="jazz",
+            predicate="works_at",  # Exclusive predicate: different object = conflict
+            object="Google",
             provenance=Provenance.USER_STATED,
             strength=0.8,
         )
@@ -105,8 +105,8 @@ class TestConflictDetector:
         candidate = MemoryAtom(
             atom_type=AtomType.RELATION,
             subject="user_001",
-            predicate="likes",
-            object="rock",  # Different object
+            predicate="works_at",
+            object="Anthropic",  # Different object
             provenance=Provenance.USER_STATED,
             strength=0.8,
         )
@@ -116,7 +116,7 @@ class TestConflictDetector:
         conflicts = await detector.find_conflicts(candidate)
         
         assert len(conflicts) == 1
-        assert conflicts[0].object == "jazz"
+        assert conflicts[0].object == "Google"
 
     @pytest.mark.asyncio
     async def test_detect_opposite_predicates(self, store: SQLiteGraphStore) -> None:

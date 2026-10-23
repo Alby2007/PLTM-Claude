@@ -3,9 +3,9 @@
 from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 
 class AtomType(str, Enum):
@@ -162,6 +162,17 @@ class MemoryAtom(BaseModel):
     atom_type: AtomType
     graph: GraphType = GraphType.UNSUBSTANTIATED
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def _coerce_id(cls, v: Any) -> Any:
+        """Accept arbitrary string ids; non-UUID strings get a deterministic uuid5."""
+        if isinstance(v, str):
+            try:
+                return UUID(v)
+            except ValueError:
+                return uuid5(NAMESPACE_URL, f"pltm:{v}")
+        return v
+
     # ========== SEMANTIC TRIPLE ==========
     subject: str
     predicate: str
@@ -188,7 +199,7 @@ class MemoryAtom(BaseModel):
     last_contradicted: Optional[datetime] = None
 
     # ========== DECAY PARAMETERS ==========
-    strength: float  # S in R = e^(-t/S), range [0.0, 1.0]
+    strength: float = 1.0  # S in R = e^(-t/S), range [0.0, 1.0]
     last_accessed: datetime = Field(default_factory=datetime.now)
     access_count: int = 0
 
@@ -219,6 +230,10 @@ class MemoryAtom(BaseModel):
         - SLOW: Evidence bundle (freq + friction) after 24 hours
         """
         from src.core.config import settings
+
+        # Already-promoted or archived atoms are never re-promoted
+        if self.graph != GraphType.UNSUBSTANTIATED:
+            return False
 
         # ========================================================================
         # FAST TRACK 0: Corrected Information (HIGHEST PRIORITY)
@@ -270,9 +285,13 @@ class MemoryAtom(BaseModel):
 
         evidence_score = sum([freq_pass, friction_pass])
 
-        # Need 2 of 2 pillars (frequency + friction) AND meet confidence threshold
-        # OR just need high enough confidence with one pillar
-        return (evidence_score >= 2 and self.confidence >= settings.PROMOTION_THRESHOLD) or \
+        # Need 2 of 2 pillars (frequency + friction) AND either standard
+        # confidence or full patience (SLOW tier has no confidence floor);
+        # OR a single pillar with very high confidence.
+        return (evidence_score >= 2 and (
+                    self.confidence >= settings.STANDARD_CONFIDENCE
+                    or hours_observed >= settings.SLOW_HOURS
+                )) or \
                (evidence_score >= 1 and self.confidence >= 0.9)
 
     @computed_field  # type: ignore[misc]

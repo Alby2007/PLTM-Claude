@@ -1,6 +1,6 @@
 """Jury orchestrator for batch deliberation"""
 
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from loguru import logger
 
@@ -13,38 +13,60 @@ from src.jury.safety_judge import SafetyJudge
 from src.jury.time_judge import TimeJudge
 
 
-def convert_to_legacy_decision(simple_decision: SimpleJuryDecision, stage: int = 1) -> JuryDecision:
+_JURY_TO_JUDGE = {
+    JuryVerdict.APPROVE: JudgeVerdict.APPROVE,
+    JuryVerdict.QUARANTINE: JudgeVerdict.QUARANTINE,
+    JuryVerdict.REJECT: JudgeVerdict.REJECT,
+}
+
+_JUDGE_TO_JURY = {
+    JudgeVerdict.APPROVE: JuryVerdict.APPROVE,
+    JudgeVerdict.QUARANTINE: JuryVerdict.QUARANTINE,
+    JudgeVerdict.REJECT: JuryVerdict.REJECT,
+    JudgeVerdict.ESCALATE: JuryVerdict.QUARANTINE,
+}
+
+
+def _to_judge_verdict(decision) -> JudgeVerdict:
+    """Normalize a SimpleJuryDecision (JuryVerdict) to legacy JudgeVerdict."""
+    verdict = decision.verdict
+    if isinstance(verdict, JudgeVerdict):
+        return verdict
+    return _JURY_TO_JUDGE.get(verdict, JudgeVerdict.QUARANTINE)
+
+
+def _confidence_adjustment(verdict: JudgeVerdict) -> float:
+    if verdict == JudgeVerdict.APPROVE:
+        return 0.1
+    if verdict == JudgeVerdict.QUARANTINE:
+        return -0.1
+    return -0.3
+
+
+def convert_to_legacy_decision(
+    simple_decision: SimpleJuryDecision,
+    stage: int = 1,
+    judge_verdicts: Optional[Dict[str, JudgeVerdict]] = None,
+    reasoning: Optional[str] = None,
+) -> JuryDecision:
     """
     Convert new SimpleJuryDecision to legacy JuryDecision format for backward compatibility.
     
     This adapter allows the new 4-judge system to work with the existing pipeline.
     """
-    # Map JuryVerdict to JudgeVerdict
-    verdict_map = {
-        JuryVerdict.APPROVE: JudgeVerdict.APPROVE,
-        JuryVerdict.REJECT: JudgeVerdict.REJECT,
-        JuryVerdict.QUARANTINE: JudgeVerdict.QUARANTINE,
-    }
-    
-    # Map confidence to adjustment (-0.3 to +0.3 range)
-    if simple_decision.verdict == JuryVerdict.APPROVE:
-        confidence_adjustment = 0.1
-    elif simple_decision.verdict == JuryVerdict.QUARANTINE:
-        confidence_adjustment = -0.1
-    else:  # REJECT
-        confidence_adjustment = -0.3
-    
+    final_verdict = _to_judge_verdict(simple_decision)
+    judge_verdicts = judge_verdicts or {}
+
     return JuryDecision(
         timestamp=datetime.now(),
         stage=stage,
-        final_verdict=verdict_map[simple_decision.verdict],
-        confidence_adjustment=confidence_adjustment,
-        reasoning=simple_decision.explanation,
-        # Individual judge verdicts not tracked in new system
-        memory_judge=None,
-        safety_judge=None,
-        consensus_judge=None,
-        time_judge=None,
+        final_verdict=final_verdict,
+        confidence_adjustment=_confidence_adjustment(final_verdict),
+        reasoning=reasoning if reasoning is not None else simple_decision.explanation,
+        memory_judge=judge_verdicts.get("memory_judge"),
+        safety_judge=judge_verdicts.get("safety_judge"),
+        consensus_judge=judge_verdicts.get("consensus_judge"),
+        time_judge=judge_verdicts.get("time_judge"),
     )
 
 
@@ -60,18 +82,43 @@ class JuryOrchestrator:
     
     Rules:
     - Safety judge has VETO authority (can override all others)
-    - All judges deliberate in parallel
-    - Consensus judge aggregates final verdict
+    - Any judge REJECT is binding (final verdict REJECT)
+    - Consensus judge aggregates the remaining decisions
     - Weighted voting for split decisions
     """
 
-    def __init__(self) -> None:
-        self.safety_judge = SafetyJudge()
-        self.memory_judge = MemoryJudge()
-        self.time_judge = TimeJudge()
-        self.consensus_judge = ConsensusJudge()
+    def __init__(
+        self,
+        safety_judge: Optional[SafetyJudge] = None,
+        memory_judge: Optional[MemoryJudge] = None,
+        time_judge: Optional[TimeJudge] = None,
+        consensus_judge: Optional[ConsensusJudge] = None,
+    ) -> None:
+        self.safety_judge = safety_judge or SafetyJudge()
+        self.memory_judge = memory_judge or MemoryJudge()
+        self.time_judge = time_judge or TimeJudge()
+        self.consensus_judge = consensus_judge or ConsensusJudge()
         self.deliberation_count = 0
         logger.info("JuryOrchestrator initialized (4-judge system: Safety + Memory + Time + Consensus)")
+
+    @staticmethod
+    def _normalize(judge_name: str, result, default_explanation: str) -> SimpleJuryDecision:
+        """Convert legacy dict-returning judges to SimpleJuryDecision."""
+        if isinstance(result, SimpleJuryDecision):
+            return result
+        if isinstance(result, dict):
+            verdict = result.get("verdict", JudgeVerdict.APPROVE)
+            jury_verdict = (
+                verdict if isinstance(verdict, JuryVerdict)
+                else _JUDGE_TO_JURY.get(verdict, JuryVerdict.QUARANTINE)
+            )
+            return SimpleJuryDecision(
+                verdict=jury_verdict,
+                confidence=float(result.get("confidence", 0.9)),
+                explanation=result.get("reason", default_explanation),
+                judge_name=judge_name,
+            )
+        raise TypeError(f"Unexpected decision type from {judge_name}: {type(result)}")
 
     async def deliberate(
         self,
@@ -92,40 +139,32 @@ class JuryOrchestrator:
         """
         self.deliberation_count += 1
 
-        # Run all judges in parallel (conceptually - sequential for now)
-        safety_decision = self.safety_judge.evaluate(atom)
-        memory_decision = self.memory_judge.evaluate(atom)
-        time_decision = self.time_judge.evaluate(atom, context)
-        
-        # Convert old-style safety/memory results to new SimpleJuryDecision format
-        # Safety judge (old format)
-        if isinstance(safety_decision, dict):
-            safety_verdict = JuryVerdict.REJECT if safety_decision["verdict"] == JudgeVerdict.REJECT else JuryVerdict.APPROVE
-            safety_decision = SimpleJuryDecision(
-                verdict=safety_verdict,
-                confidence=0.95,
-                explanation=safety_decision.get("reason", "Safety check"),
-                judge_name="SafetyJudge",
-            )
-        
-        # Memory judge (old format)
-        if isinstance(memory_decision, dict):
-            memory_verdict_map = {
-                JudgeVerdict.APPROVE: JuryVerdict.APPROVE,
-                JudgeVerdict.QUARANTINE: JuryVerdict.QUARANTINE,
-                JudgeVerdict.REJECT: JuryVerdict.REJECT,
-            }
-            memory_verdict = memory_verdict_map.get(memory_decision["verdict"], JuryVerdict.APPROVE)
-            memory_decision = SimpleJuryDecision(
-                verdict=memory_verdict,
-                confidence=0.90,
-                explanation=memory_decision.get("reason", "Memory validation"),
-                judge_name="MemoryJudge",
-            )
-        
-        # Collect all decisions
+        # Run all judges
+        safety_decision = self._normalize(
+            "SafetyJudge", self.safety_judge.evaluate(atom), "Safety check"
+        )
+        memory_decision = self._normalize(
+            "MemoryJudge", self.memory_judge.evaluate(atom), "Memory validation"
+        )
+        time_decision = self._normalize(
+            "TimeJudge", self.time_judge.evaluate(atom, context), "Temporal check"
+        )
+
         all_decisions = [safety_decision, memory_decision, time_decision]
-        
+        judge_verdicts = {
+            "safety_judge": _to_judge_verdict(safety_decision),
+            "memory_judge": _to_judge_verdict(memory_decision),
+            "time_judge": _to_judge_verdict(time_decision),
+        }
+
+        def _reasoning(final: SimpleJuryDecision) -> str:
+            parts = [
+                f"{d.judge_name}: {d.verdict.value} ({d.explanation})"
+                for d in all_decisions
+            ]
+            parts.append(f"ConsensusJudge: {final.verdict.value} ({final.explanation})")
+            return "; ".join(parts)
+
         # Safety judge has VETO authority - if it rejects, override consensus
         if safety_decision.verdict == JuryVerdict.REJECT:
             logger.warning(
@@ -134,32 +173,54 @@ class JuryOrchestrator:
                 predicate=atom.predicate,
                 object=atom.object,
             )
-            # Return rejection decision directly
-            return SimpleJuryDecision(
+            final = SimpleJuryDecision(
                 verdict=JuryVerdict.REJECT,
                 confidence=safety_decision.confidence,
                 explanation=f"Safety veto: {safety_decision.explanation}",
                 judge_name="ConsensusJudge",
             )
-        
-        # Get consensus from all non-veto decisions
+            decision = convert_to_legacy_decision(
+                final, stage, judge_verdicts, _reasoning(final)
+            )
+            decision.consensus_judge = JudgeVerdict.REJECT
+            return decision
+
+        # Any other judge REJECT is binding
+        rejecters = [d for d in all_decisions if d.verdict == JuryVerdict.REJECT]
+        if rejecters:
+            final = SimpleJuryDecision(
+                verdict=JuryVerdict.REJECT,
+                confidence=max(d.confidence for d in rejecters),
+                explanation=f"{rejecters[0].judge_name} rejected: {rejecters[0].explanation}",
+                judge_name="ConsensusJudge",
+            )
+            decision = convert_to_legacy_decision(
+                final, stage, judge_verdicts, _reasoning(final)
+            )
+            decision.consensus_judge = JudgeVerdict.REJECT
+            return decision
+
+        # Get consensus from all non-reject decisions
         consensus_decision = self.consensus_judge.aggregate_decisions(all_decisions, atom)
-        
+        judge_verdicts["consensus_judge"] = _to_judge_verdict(consensus_decision)
+
         # Log the decision
         verdict_emoji = {
             JuryVerdict.APPROVE: "✅",
             JuryVerdict.QUARANTINE: "⚠️",
             JuryVerdict.REJECT: "❌",
         }
-        
+
         logger.debug(
             f"{verdict_emoji[consensus_decision.verdict]} Jury decision: "
             f"[{atom.subject}] [{atom.predicate}] [{atom.object}] - "
             f"{consensus_decision.verdict.value} ({consensus_decision.confidence:.0%})"
         )
-        
+
         # Convert to legacy format for backward compatibility with pipeline
-        return convert_to_legacy_decision(consensus_decision, stage)
+        return convert_to_legacy_decision(
+            consensus_decision, stage, judge_verdicts, _reasoning(consensus_decision)
+        )
 
     async def deliberate_batch(
         self,
@@ -186,18 +247,17 @@ class JuryOrchestrator:
 
         for atom in atoms:
             decision = await self.deliberate(atom, stage, context)
-            
+
             # Store decision in atom's history
             atom.jury_history.append(decision)
 
-            # Use final_verdict since adapter returns legacy JuryDecision
             if decision.final_verdict == JudgeVerdict.APPROVE:
                 approved.append(atom)
             elif decision.final_verdict == JudgeVerdict.REJECT:
                 rejected.append(atom)
             else:  # QUARANTINE
                 quarantined.append(atom)
-                
+
             self._log_decision(atom, decision)
 
         logger.info(

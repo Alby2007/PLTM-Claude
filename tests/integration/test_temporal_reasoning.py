@@ -28,14 +28,14 @@ async def setup_pipeline():
 @pytest.mark.asyncio
 async def test_decay_prediction(setup_pipeline):
     """Test that decay prediction works"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     engine = TemporalReasoningEngine(pipeline)
     
     user_id = "test_user"
     
     # Add some memories
-    await pipeline.process_message(user_id, "I love Python programming")
-    await pipeline.process_message(user_id, "I'm learning machine learning")
+    await pipeline.process(user_id, "I love Python programming")
+    await pipeline.process(user_id, "I'm learning machine learning")
     
     # Predict decay
     predictions = await engine.predict_decay(user_id, days_ahead=30)
@@ -47,13 +47,13 @@ async def test_decay_prediction(setup_pipeline):
 @pytest.mark.asyncio
 async def test_anomaly_detection(setup_pipeline):
     """Test temporal anomaly detection"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     engine = TemporalReasoningEngine(pipeline)
     
     user_id = "test_user"
     
     # Add memories
-    await pipeline.process_message(user_id, "I use React for frontend")
+    await pipeline.process(user_id, "I use React for frontend")
     
     # Detect anomalies
     anomalies = await engine.detect_anomalies(user_id, lookback_days=7)
@@ -65,13 +65,13 @@ async def test_anomaly_detection(setup_pipeline):
 @pytest.mark.asyncio
 async def test_interest_tracking(setup_pipeline):
     """Test interest shift prediction"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     engine = TemporalReasoningEngine(pipeline)
     
     user_id = "test_user"
     
     # Add interest
-    await pipeline.process_message(user_id, "I love Python")
+    await pipeline.process(user_id, "I love Python")
     
     # Track interest
     trend, confidence, reasoning = await engine.predict_interest_shift(user_id, "Python")
@@ -86,14 +86,14 @@ async def test_interest_tracking(setup_pipeline):
 @pytest.mark.asyncio
 async def test_temporal_experiment(setup_pipeline):
     """Test full temporal reasoning experiment"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     experiment = TemporalReasoningExperiment(pipeline)
     
     user_id = "test_user"
     
     # Add test data
-    await pipeline.process_message(user_id, "I love Python")
-    await pipeline.process_message(user_id, "I'm learning React")
+    await pipeline.process(user_id, "I love Python")
+    await pipeline.process(user_id, "I'm learning React")
     
     # Run experiments
     decay_result = await experiment.run_decay_prediction_experiment(user_id, days_ahead=30)

@@ -19,12 +19,13 @@ from src.reconciliation.conflict_detector import ConflictDetector
 
 
 @pytest.fixture
-def components():
+async def components():
     """Initialize test components"""
     store = SQLiteGraphStore(":memory:")
     extractor = RuleBasedExtractor()
     detector = ConflictDetector(store)
-    return store, extractor, detector
+    yield store, extractor, detector
+    await store.close()
 
 
 # ============================================================================

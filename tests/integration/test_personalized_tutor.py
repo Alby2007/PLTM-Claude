@@ -28,13 +28,13 @@ async def setup_pipeline():
 @pytest.mark.asyncio
 async def test_skill_assessment(setup_pipeline):
     """Test skill level assessment"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     tutor = PersonalizedTutor(pipeline, user_id)
     
     # Add learning history
-    await pipeline.process_message(user_id, "I'm learning Python")
-    await pipeline.process_message(user_id, "I understand functions")
+    await pipeline.process(user_id, "I'm learning Python")
+    await pipeline.process(user_id, "I understand functions")
     
     # Assess skill
     level, confidence, reasoning = await tutor.assess_skill_level("Python")
@@ -49,12 +49,12 @@ async def test_skill_assessment(setup_pipeline):
 @pytest.mark.asyncio
 async def test_knowledge_gaps(setup_pipeline):
     """Test knowledge gap identification"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     tutor = PersonalizedTutor(pipeline, user_id)
     
     # Add knowledge
-    await pipeline.process_message(user_id, "I know React")
+    await pipeline.process(user_id, "I know React")
     
     # Identify gaps
     gaps = await tutor.identify_knowledge_gaps("React")
@@ -66,12 +66,12 @@ async def test_knowledge_gaps(setup_pipeline):
 @pytest.mark.asyncio
 async def test_personalized_explanation(setup_pipeline):
     """Test personalized explanation generation"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     tutor = PersonalizedTutor(pipeline, user_id)
     
     # Add skill level
-    await pipeline.process_message(user_id, "I'm a beginner in Python")
+    await pipeline.process(user_id, "I'm a beginner in Python")
     
     # Generate explanation
     explanation = await tutor.generate_personalized_explanation("recursion")
@@ -85,12 +85,12 @@ async def test_personalized_explanation(setup_pipeline):
 @pytest.mark.asyncio
 async def test_learning_recommendations(setup_pipeline):
     """Test next step recommendations"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     tutor = PersonalizedTutor(pipeline, user_id)
     
     # Add current knowledge
-    await pipeline.process_message(user_id, "I know Python basics")
+    await pipeline.process(user_id, "I know Python basics")
     
     # Get recommendations
     recommendations = await tutor.recommend_next_steps("Python")
@@ -102,13 +102,13 @@ async def test_learning_recommendations(setup_pipeline):
 @pytest.mark.asyncio
 async def test_tutor_experiment(setup_pipeline):
     """Test full personalized tutor experiment"""
-    pipeline = await setup_pipeline.__anext__()
+    pipeline = setup_pipeline
     user_id = "test_user"
     experiment = PersonalizedTutorExperiment(pipeline, user_id)
     
     # Add learning data
-    await pipeline.process_message(user_id, "I'm learning Python")
-    await pipeline.process_message(user_id, "I'm proficient in JavaScript")
+    await pipeline.process(user_id, "I'm learning Python")
+    await pipeline.process(user_id, "I'm proficient in JavaScript")
     
     # Run experiments
     assessment_result = await experiment.run_skill_assessment_experiment(

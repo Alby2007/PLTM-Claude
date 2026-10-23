@@ -14,6 +14,7 @@ from src.jury.time_judge import TimeJudge
 from src.jury.consensus_judge import ConsensusJudge
 from src.storage.sqlite_store import SQLiteGraphStore
 from src.reconciliation.conflict_detector import ConflictDetector
+from src.pipeline.write_lane import WriteLane
 from src.core.decay import DecayEngine
 from src.core.retrieval import MemoryRetriever
 
@@ -44,15 +45,21 @@ async def pipeline_components():
     # Initialize decay components
     decay_engine = DecayEngine()
     retriever = MemoryRetriever(store, decay_engine)
-    
-    return {
+
+    # Write lane (promotion + persistence)
+    write_lane = WriteLane(store)
+
+    yield {
         "store": store,
         "extractor": extractor,
         "jury": jury,
         "conflict_detector": conflict_detector,
         "decay_engine": decay_engine,
-        "retriever": retriever
+        "retriever": retriever,
+        "write_lane": write_lane,
     }
+
+    await store.close()
 
 
 class TestFullPipeline:
@@ -167,10 +174,13 @@ class TestFullPipeline:
             # First time, no conflicts expected
             assert len(conflicts) == 0
         
-        # Step 4: Store atoms
-        for atom in approved:
-            await store.insert_atom(atom)
-        
+        # Step 4: Persist via write lane (handles promotion to substantiated)
+        write_lane = pipeline_components["write_lane"]
+        atoms_with_verdicts = [
+            (atom, atom.jury_history[-1]) for atom in approved if atom.jury_history
+        ]
+        await write_lane.process_verdicts(atoms_with_verdicts)
+
         # Step 5: Retrieve and verify
         stored_atoms = await retriever.get_atoms("user_1", reconsolidate=True)
         
@@ -324,10 +334,11 @@ class TestPipelineEdgeCases:
         
         await store.insert_atom(atom1)
         await store.insert_atom(atom2)
-        
-        # Both should be stored (different IDs)
+
+        # Identical (subject, predicate, object, graph) triples are re-assertions:
+        # the UNIQUE constraint + INSERT OR REPLACE consolidates them to one row.
         atoms = await store.get_all_atoms(subject="user_1")
-        assert len(atoms) == 2
+        assert len(atoms) == 1
     
     @pytest.mark.asyncio
     async def test_concurrent_operations(self, pipeline_components):

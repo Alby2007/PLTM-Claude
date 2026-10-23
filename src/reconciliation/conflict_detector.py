@@ -60,9 +60,13 @@ class ConflictDetector:
         "prefers",       # Strong preference is singular (prefer X over Y)
         "married_to",    # (hopefully) singular relationship
         "reports_to",    # Only one direct manager
+        "prefers_over",  # A ranking statement is singular (reversed = conflict)
     }
 
     # Opposite predicate pairs
+    # "Hard" opposites resolve via supersession; "weak" opposites involving
+    # neutral/past-tense predicates flag conflicts too, but the resolver keeps
+    # both sides (temporal record + current state coexist).
     OPPOSITE_PREDICATES = [
         ("likes", "dislikes"),
         ("loves", "hates"),
@@ -73,7 +77,28 @@ class ConflictDetector:
         ("agrees", "disagrees"),
         ("trusts", "distrusts"),
         ("accepts", "rejects"),
+        # Weak opposites: neutral stance and past-tense preference
+        ("neutral", "likes"),
+        ("neutral", "dislikes"),
+        ("neutral", "loves"),
+        ("neutral", "hates"),
+        ("liked_past", "dislikes"),
+        ("liked_past", "hates"),
     ]
+
+    # Common abbreviations expanded during object normalization so that
+    # "SF" and "San Francisco" compare equal.
+    OBJECT_ALIASES = {
+        "sf": "san francisco",
+        "nyc": "new york",
+        "la": "los angeles",
+        "lv": "las vegas",
+        "dc": "washington dc",
+        "js": "javascript",
+        "ts": "typescript",
+        "ml": "machine learning",
+        "ai": "artificial intelligence",
+    }
 
     # Opposite sentiment words
     OPPOSITE_SENTIMENTS = [
@@ -194,13 +219,19 @@ class ConflictDetector:
                 # Skip self-comparison
                 if atom.id == candidate.id:
                     continue
-                
+
+                # Pass if objects are equivalent (exact/containment after
+                # normalization) or string-similar enough
+                if self._objects_equivalent(candidate.object, atom.object):
+                    similar_matches.append(atom)
+                    continue
+
                 # Calculate string similarity using SequenceMatcher
                 similarity = self._calculate_similarity(
                     candidate.object,
                     atom.object,
                 )
-                
+
                 # Only consider atoms above similarity threshold
                 if similarity > similarity_threshold:
                     similar_matches.append(atom)
@@ -277,11 +308,68 @@ class ConflictDetector:
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """
         Calculate string similarity using SequenceMatcher.
-        
+
         For MVP: Simple string similarity.
         Future: Use embeddings for semantic similarity.
         """
         return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
+
+    def _normalize_object(self, obj: str) -> str:
+        """
+        Normalize an object for comparison: lowercase, strip parentheticals,
+        punctuation decoration (#, @, quotes, brackets), expand abbreviations,
+        collapse whitespace.
+        """
+        import re as _re
+
+        text = obj.lower().strip()
+        # Drop parenthetical asides: "python (the language)" -> "python"
+        text = _re.sub(r"\([^)]*\)", "", text)
+        # Possessives: "python's syntax" -> "python syntax"
+        text = _re.sub(r"(\w)'s\b", r"\1", text)
+        # Drop surrounding decoration: quotes, brackets, hashtags, mentions
+        text = _re.sub(r"[\[\]\"'`{}<>]", "", text)
+        # Expand word-level abbreviations and strip leading #/@
+        words = []
+        for word in text.split():
+            word = word.lstrip("#@").rstrip(".,!?;:")
+            if not word:
+                continue
+            words.append(self.OBJECT_ALIASES.get(word, word))
+        return " ".join(_re.sub(r"\s+", " ", " ".join(words)).split())
+
+    def _object_tokens(self, obj: str) -> set:
+        """Word-level token set of the normalized object"""
+        import re as _re
+
+        return set(_re.findall(r"[a-z0-9+#.]+", self._normalize_object(obj)))
+
+    def _digit_tokens(self, obj: str) -> set:
+        """Numeric tokens in the object (version-sensitive comparison)"""
+        import re as _re
+
+        return set(_re.findall(r"\d+(?:\.\d+)*", obj))
+
+    def _objects_equivalent(self, obj1: str, obj2: str) -> bool:
+        """
+        Two objects refer to the same thing when, after normalization, they are
+        equal or one's word set contains the other's ("Python" within
+        "Python and JavaScript"). Different numeric tokens ("Python 3" vs
+        "Python 2") always mean different objects.
+        """
+        n1, n2 = self._normalize_object(obj1), self._normalize_object(obj2)
+        if not n1 or not n2:
+            return False
+        # Different version numbers on both sides = different objects
+        # ("Python 3" vs "Python 2"); a one-sided qualifier still matches
+        # ("Python 100%" vs "Python").
+        d1, d2 = self._digit_tokens(obj1), self._digit_tokens(obj2)
+        if d1 and d2 and d1 != d2:
+            return False
+        if n1 == n2:
+            return True
+        t1, t2 = self._object_tokens(obj1), self._object_tokens(obj2)
+        return t1 <= t2 or t2 <= t1
 
     def _is_semantic_conflict(
         self,
@@ -303,16 +391,20 @@ class ConflictDetector:
         # Check for opposite predicates (exact match)
         pred1 = atom1.predicate.lower()
         pred2 = atom2.predicate.lower()
-        
+
         for pos, neg in self.OPPOSITE_PREDICATES:
             if (pred1 == pos and pred2 == neg) or (pred1 == neg and pred2 == pos):
+                # Opposite predicates only conflict over the same object:
+                # "Python/Flask" vs "Python/Django" are different things.
+                if not self._objects_equivalent(atom1.object, atom2.object):
+                    continue
                 logger.debug(f"Opposite predicates detected: {pred1} vs {pred2}")
                 return True
 
         # Check for opposite sentiments in objects
         obj1 = atom1.object.lower()
         obj2 = atom2.object.lower()
-        
+
         for pos, neg in self.OPPOSITE_SENTIMENTS:
             if (pos in obj1 and neg in obj2) or (neg in obj1 and pos in obj2):
                 logger.debug(f"Opposite sentiments detected: {obj1} vs {obj2}")
@@ -320,21 +412,32 @@ class ConflictDetector:
 
         # Check for exclusive predicates with different objects
         if pred1 == pred2 and pred1 in self.EXCLUSIVE_PREDICATES:
-            # For exclusive predicates, different objects = conflict
-            if obj1 != obj2:
-                # Check if one is a refinement (substring)
-                if obj1 in obj2 or obj2 in obj1:
-                    logger.debug(f"Refinement detected, not conflict: {obj1} vs {obj2}")
+            norm1 = self._normalize_object(atom1.object)
+            norm2 = self._normalize_object(atom2.object)
+            if norm1 == norm2:
+                # Same entity after normalization (e.g. "SF" == "San Francisco")
+                return False
+
+            # Ranking objects ("X over Y") only conflict when the ranking is
+            # reversed; transitive/circular chains are compatible.
+            if " over " in norm1 and " over " in norm2:
+                parts1 = norm1.split(" over ", 1)
+                parts2 = norm2.split(" over ", 1)
+                if parts1 != parts2[::-1]:
+                    logger.debug(f"Compatible rankings, not conflict: {norm1} vs {norm2}")
                     return False
-                
-                # Check if contexts differ (allow coexistence with different contexts)
-                if self._have_different_contexts(atom1, atom2):
-                    logger.debug(f"Different contexts, not conflict: {atom1.contexts} vs {atom2.contexts}")
-                    return False
-                
-                # Same exclusive predicate, different objects, no context difference = conflict
-                logger.debug(f"Exclusive predicate conflict: {pred1} with {obj1} vs {obj2}")
+                logger.debug(f"Reversed ranking conflict: {norm1} vs {norm2}")
                 return True
+
+            # Check if contexts differ (allow coexistence with different contexts)
+            if self._have_different_contexts(atom1, atom2):
+                logger.debug(f"Different contexts, not conflict: {atom1.contexts} vs {atom2.contexts}")
+                return False
+
+            # Same exclusive predicate, different objects = conflict.
+            # (Refinements still flag — the resolver decides coexistence.)
+            logger.debug(f"Exclusive predicate conflict: {pred1} with {norm1} vs {norm2}")
+            return True
 
         # If objects are different and neither is an update, check for conflicts
         if obj1 != obj2:
@@ -382,50 +485,33 @@ class ConflictDetector:
         
         conflicts: List[MemoryAtom] = []
         
-        # Find opposite predicate if it exists
-        pred_lower = candidate.predicate.lower()
-        opposite_pred = None
-        
-        for pos, neg in self.OPPOSITE_PREDICATES:
-            if pred_lower == pos:
-                opposite_pred = neg
-                break
-            elif pred_lower == neg:
-                opposite_pred = pos
-                break
+        # Find all opposite predicates (there may be several)
+        opposite_preds = self._get_opposite_predicates(candidate.predicate)
 
-        if not opposite_pred:
-            logger.debug(f"No opposite predicate found for: {pred_lower}")
+        if not opposite_preds:
+            logger.debug(f"No opposite predicate found for: {candidate.predicate.lower()}")
             return []
 
-        logger.debug(f"Found opposite predicate: {pred_lower} <-> {opposite_pred}")
-
-        # Search for atoms with opposite predicate
-        opposite_atoms = await self.store.find_by_triple(
-            candidate.subject,
-            opposite_pred,
-            exclude_historical=True,
-        )
-
-        logger.debug(f"Found {len(opposite_atoms)} atoms with opposite predicate '{opposite_pred}'")
-
-        # Check if objects are similar
-        for atom in opposite_atoms:
-            similarity = self._calculate_similarity(
-                candidate.object,
-                atom.object,
+        for opposite_pred in opposite_preds:
+            # Search for atoms with opposite predicate
+            opposite_atoms = await self.store.find_by_triple(
+                candidate.subject,
+                opposite_pred,
+                exclude_historical=True,
             )
-            
-            logger.debug(f"Similarity between '{candidate.object}' and '{atom.object}': {similarity}")
-            
-            if similarity > 0.7:  # Lower threshold for opposite predicates
-                conflicts.append(atom)
-                logger.info(
-                    "Opposite predicate conflict: {p1} vs {p2} for {obj}",
-                    p1=candidate.predicate,
-                    p2=atom.predicate,
-                    obj=candidate.object[:50],
-                )
+
+            logger.debug(f"Found {len(opposite_atoms)} atoms with opposite predicate '{opposite_pred}'")
+
+            # Only count as conflicting when objects refer to the same thing
+            for atom in opposite_atoms:
+                if self._objects_equivalent(candidate.object, atom.object):
+                    conflicts.append(atom)
+                    logger.info(
+                        "Opposite predicate conflict: {p1} vs {p2} for {obj}",
+                        p1=candidate.predicate,
+                        p2=atom.predicate,
+                        obj=candidate.object[:50],
+                    )
 
         logger.debug(f"Returning {len(conflicts)} opposite predicate conflicts")
         return conflicts

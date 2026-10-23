@@ -33,7 +33,7 @@ class ArchitectureSnapshotter:
         self._ensure_tables()
 
     def _ensure_tables(self):
-        conn = sqlite3.connect(str(self.db_path))
+        conn = sqlite3.connect(str(self.db_path), timeout=2)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS architecture_snapshots (
                 id TEXT PRIMARY KEY,
@@ -68,7 +68,7 @@ class ArchitectureSnapshotter:
             tool_names: List of registered MCP tool names (passed from server)
             notes: Optional description of what changed
         """
-        conn = sqlite3.connect(str(self.db_path))
+        conn = sqlite3.connect(str(self.db_path), timeout=2)
         conn.execute("PRAGMA busy_timeout = 5000")
         now = time.time()
         snap_id = str(uuid4())
@@ -114,7 +114,7 @@ class ArchitectureSnapshotter:
 
     def list_snapshots(self, limit: int = 20) -> Dict[str, Any]:
         """List recent snapshots."""
-        conn = sqlite3.connect(str(self.db_path))
+        conn = sqlite3.connect(str(self.db_path), timeout=2)
         rows = conn.execute("""
             SELECT id, label, timestamp, tool_count, atom_count,
                    typed_memory_count, table_count, config_hash, notes
@@ -135,7 +135,7 @@ class ArchitectureSnapshotter:
 
     def get_latest(self) -> Optional[Dict[str, Any]]:
         """Get the most recent snapshot."""
-        conn = sqlite3.connect(str(self.db_path))
+        conn = sqlite3.connect(str(self.db_path), timeout=2)
         row = conn.execute("""
             SELECT id, label, timestamp, tool_count, tool_list, atom_count,
                    typed_memory_count, table_count, config_hash, metrics, notes
@@ -154,7 +154,7 @@ class ArchitectureSnapshotter:
         
         Returns deltas for counts, metrics, and tool inventory changes.
         """
-        conn = sqlite3.connect(str(self.db_path))
+        conn = sqlite3.connect(str(self.db_path), timeout=2)
         a = conn.execute(
             "SELECT * FROM architecture_snapshots WHERE id = ?", (snapshot_id_a,)
         ).fetchone()

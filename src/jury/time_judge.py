@@ -212,7 +212,11 @@ class TimeJudge(BaseJudge):
                 # Different years for same fact type
                 if markers["year"] != existing_markers["year"]:
                     # This is actually OK - temporal progression
-                    # Only flag if tenses don't match the years
-                    pass
+                    # Only flag if both claim to be the *present* state:
+                    # "works at X" (2024, present) vs "works at Y" (2025, present)
+                    # can't both be current.
+                    if (markers["tense"] == "present"
+                            and existing_markers["tense"] == "present"):
+                        return True
         
         return False

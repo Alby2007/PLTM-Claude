@@ -368,16 +368,16 @@ class TestJuryOrchestrator:
             ),
         ]
         
-        results = await jury.deliberate_batch(atoms)
-        
-        assert len(results) == 3
+        approved, rejected, quarantined = await jury.deliberate_batch(atoms)
         
         # First two should be approved
-        assert results[0][1].final_verdict == JudgeVerdict.APPROVE
-        assert results[1][1].final_verdict == JudgeVerdict.APPROVE
+        assert len(approved) == 2
+        assert approved[0].jury_history[-1].final_verdict == JudgeVerdict.APPROVE
+        assert approved[1].jury_history[-1].final_verdict == JudgeVerdict.APPROVE
         
         # Third should be rejected (invalid ontology)
-        assert results[2][1].final_verdict == JudgeVerdict.REJECT
+        assert len(rejected) == 1
+        assert rejected[0].jury_history[-1].final_verdict == JudgeVerdict.REJECT
 
     @pytest.mark.asyncio
     async def test_jury_history_recorded(self) -> None:
