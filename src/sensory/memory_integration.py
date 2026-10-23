@@ -32,7 +32,7 @@ class SensoryMemoryIntegrator:
     async def store_visual_observation(
         self, 
         observation: Dict[str, Any],
-        user_id: str = "alby"
+        user_id: str = "claude"
     ) -> List[str]:
         """
         Store visual observation as memory atoms.
@@ -105,7 +105,7 @@ class SensoryMemoryIntegrator:
     async def store_audio_observation(
         self,
         observation: Dict[str, Any],
-        user_id: str = "alby"
+        user_id: str = "claude"
     ) -> List[str]:
         """
         Store audio observation as memory atoms.
@@ -179,7 +179,7 @@ class SensoryMemoryIntegrator:
         visual: Dict[str, Any],
         audio: Dict[str, Any],
         correlation: Dict[str, Any],
-        user_id: str = "alby"
+        user_id: str = "claude"
     ) -> List[str]:
         """
         Store cross-modal correlations as memory atoms.
@@ -253,7 +253,7 @@ class SensoryMemoryIntegrator:
     
     async def get_recent_sensory_atoms(
         self,
-        user_id: str = "alby",
+        user_id: str = "claude",
         seconds: float = 60.0,
         modality: str = None
     ) -> List[MemoryAtom]:

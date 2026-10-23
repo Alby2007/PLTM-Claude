@@ -247,7 +247,7 @@ class TypedMemoryStore:
     
     # ========== STORE ==========
     
-    async def store(self, mem: TypedMemory, bypass_jury: bool = False) -> str:
+    async def store(self, mem: TypedMemory, bypass_jury: bool = False, bulk: bool = False) -> str:
         """Store a typed memory. Runs jury validation unless bypass_jury=True."""
         now = time.time()
         if mem.created_at == 0:
@@ -277,6 +277,7 @@ class TypedMemoryStore:
                 memory_type=mem.memory_type.value,
                 episode_timestamp=mem.episode_timestamp,
                 existing_contents=existing,
+                bulk=bulk,
             )
             
             if decision.verdict == Verdict.REJECT:
@@ -347,11 +348,8 @@ class TypedMemoryStore:
         row = await cursor.fetchone()
         if not row:
             return None
-        mem = self._row_to_memory(row)
-        # Update strength with decay
-        mem.strength = mem.current_strength()
-        return mem
-    
+        return self._row_to_memory(row)
+
     async def recall(self, memory_id: str) -> Optional[TypedMemory]:
         """Recall a memory — retrieves it AND strengthens it (rehearsal)."""
         mem = await self.get(memory_id)
@@ -400,11 +398,7 @@ class TypedMemoryStore:
         rows = await cursor.fetchall()
         
         memories = [self._row_to_memory(row) for row in rows]
-        
-        # Apply decay to returned memories
-        for mem in memories:
-            mem.strength = mem.current_strength()
-        
+
         # Filter by tags if specified
         if tags:
             memories = [m for m in memories if any(t in m.tags for t in tags)]
@@ -483,21 +477,34 @@ class TypedMemoryStore:
         evidence_id: str = "",
         confidence_delta: float = 0.0
     ) -> Optional[TypedMemory]:
-        """Update a belief with new evidence."""
+        """Update a belief with new evidence.
+
+        confidence moves by evidence_type: "for" raises it, "against" lowers
+        it — regardless of whether an evidence_id is supplied (the id only
+        controls whether an evidence entry is recorded). Editing must not
+        decay or bump strength.
+        """
         belief = await self.get(belief_id)
         if not belief or belief.memory_type != MemoryType.BELIEF:
             return None
-        
+
+        if evidence_type == "for":
+            sign = 1.0
+        elif evidence_type == "against":
+            sign = -1.0
+        else:
+            sign = 0.0
+
         if evidence_type == "for" and evidence_id:
             belief.evidence_for.append(evidence_id)
-            belief.confidence = min(0.99, belief.confidence + abs(confidence_delta))
         elif evidence_type == "against" and evidence_id:
             belief.evidence_against.append(evidence_id)
-            belief.confidence = max(0.01, belief.confidence - abs(confidence_delta))
+
+        if sign != 0.0:
+            belief.confidence = max(0.01, min(0.99, belief.confidence + sign * abs(confidence_delta)))
         else:
             belief.confidence = max(0.01, min(0.99, belief.confidence + confidence_delta))
-        
-        belief.strength = min(1.0, belief.strength + 0.1)  # Any update strengthens
+
         await self.store(belief, bypass_jury=True)
         return belief
     

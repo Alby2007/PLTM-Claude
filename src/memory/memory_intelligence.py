@@ -790,7 +790,7 @@ class MemoryPortability:
                 "content": mem.content,
                 "context": mem.context,
                 "source": mem.source,
-                "strength": mem.strength,
+                "strength": round(mem.current_strength(), 3),
                 "created_at": mem.created_at,
                 "last_accessed": mem.last_accessed,
                 "access_count": mem.access_count,

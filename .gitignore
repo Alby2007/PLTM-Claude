@@ -45,6 +45,7 @@ ENV/
 # Untrack with: git rm --cached data/pltm_mcp.db
 !data/
 data/*.bak.*
+data/*.db
 pltm_mcp.db
 
 # Models Cache

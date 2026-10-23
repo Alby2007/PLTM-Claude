@@ -3297,10 +3297,27 @@ async def handle_check_pltm(args: Dict[str, Any]) -> List[TextContent]:
         style = await claude._load_claude_style(user_id)
         
         has_data = context.session_count > 0 or len(dynamics.works_well) > 0
-        
+
+        # Real memory counts — makes an empty store obvious instead of
+        # implying data exists for a user_id that has none.
+        memory_count = atom_count = 0
+        try:
+            if typed_memory_store:
+                memory_count = (await typed_memory_store.get_stats(user_id)).get("total", 0)
+        except Exception:
+            pass
+        try:
+            if store:
+                atom_count = len(await store.get_atoms(user_id))
+        except Exception:
+            pass
+        has_data = has_data or memory_count > 0 or atom_count > 0
+
         result = {
             "available": has_data,
             "user_id": user_id,
+            "memory_count": memory_count,
+            "atom_count": atom_count,
             "sessions": context.session_count,
             "trust_level": dynamics.trust_level,
             "should_init": has_data,

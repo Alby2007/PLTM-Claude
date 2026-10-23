@@ -43,7 +43,7 @@ async def handle_store_typed(args: Dict[str, Any], mem_type: str) -> List[TextCo
         "id": mem_id,
         "type": mem_type,
         "content": mem.content[:100],
-        "strength": mem.strength,
+        "strength": round(mem.current_strength(), 3),
         "confidence": mem.confidence,
     }))]
 
@@ -125,24 +125,29 @@ async def handle_update_belief_mem(args: Dict[str, Any]) -> List[TextContent]:
         return [TextContent(type="text", text=compact_json({"error": "'confidence_delta' (number) is required"}))]
     # Accept 'direction'/'type' as alias for 'evidence_type'
     evidence_type = args.get("evidence_type") or args.get("direction") or args.get("type", "for")
+    evidence_id = args.get("evidence_id", "")
     belief = await R.typed_memory_store.update_belief(
         belief_id=args.get("belief_id") or args.get("id", ""),
         evidence_type=evidence_type,
-        evidence_id=args.get("evidence_id", ""),
+        evidence_id=evidence_id,
         confidence_delta=float(confidence_delta),
     )
 
     if not belief:
         return [TextContent(type="text", text=compact_json({"error": "Belief not found or not a belief type"}))]
 
-    return [TextContent(type="text", text=compact_json({
+    result = {
         "updated": True,
         "id": belief.id,
         "content": belief.content,
         "new_confidence": round(belief.confidence, 3),
         "evidence_for": len(belief.evidence_for),
         "evidence_against": len(belief.evidence_against),
-    }))]
+        "evidence_recorded": bool(evidence_id),
+    }
+    if not evidence_id:
+        result["note"] = "No evidence_id given — confidence adjusted but no evidence entry recorded"
+    return [TextContent(type="text", text=compact_json(result))]
 
 
 async def handle_record_procedure(args: Dict[str, Any]) -> List[TextContent]:
@@ -170,7 +175,7 @@ async def handle_record_procedure(args: Dict[str, Any]) -> List[TextContent]:
         "success_count": proc.success_count,
         "failure_count": proc.failure_count,
         "success_rate": round(proc.success_count / max(1, total), 2),
-        "strength": round(proc.strength, 3),
+        "strength": round(proc.current_strength(), 3),
     }))]
 
 

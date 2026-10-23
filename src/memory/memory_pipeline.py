@@ -452,6 +452,7 @@ class TypedMemoryPipeline:
         user_id: str,
         context: str = "",
         auto_tag: bool = True,
+        bulk: bool = False,
     ) -> PipelineUpdate:
         """
         Process a message through the full 3-lane pipeline.
@@ -496,6 +497,7 @@ class TypedMemoryPipeline:
                     memory_type=mem.memory_type.value,
                     episode_timestamp=mem.episode_timestamp,
                     existing_contents=existing_contents,
+                    bulk=bulk,
                 )
 
                 if decision.verdict == Verdict.REJECT:
@@ -574,7 +576,7 @@ class TypedMemoryPipeline:
         """Process multiple messages through the pipeline."""
         combined = PipelineUpdate(stage="batch_complete")
         for msg in messages:
-            update = await self.process_message(msg, user_id, context)
+            update = await self.process_message(msg, user_id, context, bulk=True)
             combined.memories_extracted += update.memories_extracted
             combined.memories_approved += update.memories_approved
             combined.memories_quarantined += update.memories_quarantined

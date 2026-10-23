@@ -231,7 +231,7 @@ class PLTMBootstrapper:
     async def bootstrap_from_conversations(
         self,
         conversations: List[Dict[str, Any]],
-        user_id: str = "alby"
+        user_id: str = "claude"
     ) -> Dict[str, Any]:
         """
         Bootstrap PLTM from conversation history
@@ -319,7 +319,7 @@ class PLTMBootstrapper:
             "unique_styles": len(set(s["style"] for s in all_styles))
         }
     
-    async def bootstrap_from_sample_data(self, user_id: str = "alby") -> Dict[str, Any]:
+    async def bootstrap_from_sample_data(self, user_id: str = "claude") -> Dict[str, Any]:
         """
         Bootstrap from sample conversation data (for testing)
         """
@@ -386,7 +386,7 @@ async def main():
     # Query personality to verify
     from src.personality.personality_synthesizer import PersonalitySynthesizer
     synth = PersonalitySynthesizer(bootstrapper.store)
-    personality = await synth.synthesize_personality("alby")
+    personality = await synth.synthesize_personality("claude")
     
     print("\nBOOTSTRAPPED PERSONALITY PROFILE:")
     print(json.dumps(personality, indent=2))

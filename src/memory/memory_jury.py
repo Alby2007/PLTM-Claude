@@ -49,15 +49,14 @@ class JudgeDecision:
 # ============================================================
 
 class SafetyJudge:
-    """Always-binding safety judge. Can veto any memory."""
+    """Blocks real credentials/identifiers; flags (not blocks) sensitive topics."""
 
+    # Hard-block patterns only
     PII_PATTERNS = [
         (r'\b\d{3}-\d{2}-\d{4}\b', "SSN"),
-        (r'\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b', "Credit Card"),
-        (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b', "Email"),
-        (r'\b(?:password|passwd|pwd)[:\s]*[^\s]+', "Password"),
-        (r'\b\d{3}[- ]?\d{3}[- ]?\d{4}\b', "Phone Number"),
+        (r'\b(?:password|passwd|pwd)\s*[:=]\s*\S+', "Password"),
     ]
+    CARD_PATTERN = re.compile(r'\b(?:\d[ -]?){15}\d\b')
 
     HARMFUL_KEYWORDS = [
         "hack", "exploit", "crack", "pirate", "steal",
@@ -65,44 +64,45 @@ class SafetyJudge:
         "weapon", "bomb", "explosive", "poison",
         "suicide", "self-harm", "overdose",
     ]
+    # Whole word, allowing simple suffixes: matches "hacked", not "hackathon"/"exploitation"
+    _HARMFUL_RE = re.compile(
+        r'\b(?:' + '|'.join(re.escape(k) for k in HARMFUL_KEYWORDS) + r')(?:s|ed|ing|er|ers)?\b',
+        re.IGNORECASE,
+    )
+
+    @staticmethod
+    def _luhn_ok(number: str) -> bool:
+        digits = [int(c) for c in number if c.isdigit()]
+        total, alt = 0, False
+        for d in reversed(digits):
+            if alt:
+                d *= 2
+                if d > 9:
+                    d -= 9
+            total += d
+            alt = not alt
+        return len(digits) >= 13 and total % 10 == 0
 
     def evaluate(self, content: str, **kwargs) -> JudgeDecision:
-        # PII check
         for pattern, pii_type in self.PII_PATTERNS:
             if re.search(pattern, content, re.IGNORECASE):
-                return JudgeDecision(
-                    verdict=Verdict.REJECT,
-                    confidence=1.0,
-                    explanation=f"PII detected: {pii_type}",
-                    judge_name="SafetyJudge",
-                )
+                return JudgeDecision(Verdict.REJECT, 1.0, f"PII detected: {pii_type}", "SafetyJudge")
 
-        # Harmful content check
-        content_lower = content.lower()
-        for keyword in self.HARMFUL_KEYWORDS:
-            if keyword in content_lower:
-                return JudgeDecision(
-                    verdict=Verdict.REJECT,
-                    confidence=1.0,
-                    explanation=f"Harmful content: {keyword}",
-                    judge_name="SafetyJudge",
-                )
+        m = self.CARD_PATTERN.search(content)
+        if m and self._luhn_ok(m.group(0)):
+            return JudgeDecision(Verdict.REJECT, 1.0, "PII detected: Credit Card", "SafetyJudge")
 
-        # Excessively long content (potential injection)
+        m = self._HARMFUL_RE.search(content)
+        if m:
+            # QUARANTINE at 0.9 so the weighted vote cannot outvote it back to APPROVE
+            return JudgeDecision(Verdict.QUARANTINE, 0.9,
+                                 f"Sensitive keyword: {m.group(0).lower()}", "SafetyJudge")
+
         if len(content) > 2000:
-            return JudgeDecision(
-                verdict=Verdict.QUARANTINE,
-                confidence=0.9,
-                explanation="Excessively long content (>2000 chars)",
-                judge_name="SafetyJudge",
-            )
+            return JudgeDecision(Verdict.QUARANTINE, 0.9,
+                                 "Excessively long content (>2000 chars)", "SafetyJudge")
 
-        return JudgeDecision(
-            verdict=Verdict.APPROVE,
-            confidence=1.0,
-            explanation="No safety concerns",
-            judge_name="SafetyJudge",
-        )
+        return JudgeDecision(Verdict.APPROVE, 1.0, "No safety concerns", "SafetyJudge")
 
 
 # ============================================================
@@ -204,66 +204,41 @@ class QualityJudge:
 class TemporalJudge:
     """Validates temporal consistency and detects rapid changes."""
 
-    def __init__(self):
-        self._recent_stores: List[Tuple[float, str]] = []  # (timestamp, content_hash)
-        self.max_rapid_stores = 10  # flag if >10 stores in 60s
+    def __init__(self, max_rapid_stores: int = 100):
+        self._recent_stores: List[Tuple[float, str]] = []
+        self.max_rapid_stores = max_rapid_stores
         self.rapid_window_seconds = 60
 
     def evaluate(self, content: str, memory_type: str = "",
-                 episode_timestamp: float = 0, **kwargs) -> JudgeDecision:
+                 episode_timestamp: float = 0, bulk: bool = False, **kwargs) -> JudgeDecision:
         now = time.time()
 
-        # Check for rapid-fire stores (potential loop or injection)
-        self._recent_stores.append((now, content[:50]))
-        cutoff = now - self.rapid_window_seconds
-        self._recent_stores = [(t, c) for t, c in self._recent_stores if t > cutoff]
+        if not bulk:
+            self._recent_stores.append((now, content[:50]))
+            cutoff = now - self.rapid_window_seconds
+            self._recent_stores = [(t, c) for t, c in self._recent_stores if t > cutoff]
+            if len(self._recent_stores) > self.max_rapid_stores:
+                return JudgeDecision(Verdict.QUARANTINE, 0.8,
+                    f"Rapid-fire storage: {len(self._recent_stores)} stores in {self.rapid_window_seconds}s",
+                    "TemporalJudge")
 
-        if len(self._recent_stores) > self.max_rapid_stores:
-            return JudgeDecision(
-                verdict=Verdict.QUARANTINE,
-                confidence=0.8,
-                explanation=f"Rapid-fire storage: {len(self._recent_stores)} stores in {self.rapid_window_seconds}s",
-                judge_name="TemporalJudge",
-            )
-
-        # For episodic memories: check timestamp plausibility
         if memory_type == "episodic" and episode_timestamp > 0:
-            # Future timestamp
             if episode_timestamp > now + 3600:
-                return JudgeDecision(
-                    verdict=Verdict.REJECT,
-                    confidence=0.95,
-                    explanation="Episodic memory has future timestamp",
-                    judge_name="TemporalJudge",
-                )
-            # Very old timestamp (>1 year)
-            if episode_timestamp < now - 365 * 86400:
-                return JudgeDecision(
-                    verdict=Verdict.QUARANTINE,
-                    confidence=0.7,
-                    explanation="Episodic memory timestamp >1 year old",
-                    judge_name="TemporalJudge",
-                )
+                return JudgeDecision(Verdict.REJECT, 0.95,
+                    "Episodic memory has future timestamp", "TemporalJudge")
+            if not bulk and episode_timestamp < now - 365 * 86400:
+                return JudgeDecision(Verdict.QUARANTINE, 0.7,
+                    "Episodic memory timestamp >1 year old", "TemporalJudge")
 
-        # Check for temporal contradiction in content
         year_match = re.search(r'\b(19|20)\d{2}\b', content)
         if year_match:
             year = int(year_match.group(0))
-            current_year = 2026  # Known current year
+            current_year = time.gmtime().tm_year   # was hardcoded 2026
             if year > current_year + 10:
-                return JudgeDecision(
-                    verdict=Verdict.QUARANTINE,
-                    confidence=0.85,
-                    explanation=f"Implausible future year: {year}",
-                    judge_name="TemporalJudge",
-                )
+                return JudgeDecision(Verdict.QUARANTINE, 0.85,
+                    f"Implausible future year: {year}", "TemporalJudge")
 
-        return JudgeDecision(
-            verdict=Verdict.APPROVE,
-            confidence=0.9,
-            explanation="Temporally consistent",
-            judge_name="TemporalJudge",
-        )
+        return JudgeDecision(Verdict.APPROVE, 0.9, "Temporally consistent", "TemporalJudge")
 
 
 # ============================================================
@@ -330,9 +305,18 @@ class ConsensusJudge:
                 judge_name="ConsensusJudge",
             )
 
-        # Any reject → quarantine
+        # Any reject → quarantine — except unambiguous exact duplicates,
+        # which are plain dedup (not a content concern needing review).
         if counts[Verdict.REJECT] > 0:
             rejects = [d for d in decisions if d.verdict == Verdict.REJECT]
+            if all(d.judge_name == "QualityJudge" and
+                   d.explanation.startswith("Exact duplicate") for d in rejects):
+                return JudgeDecision(
+                    verdict=Verdict.REJECT,
+                    confidence=max(d.confidence for d in rejects),
+                    explanation=f"Exact duplicate — not stored: {rejects[0].explanation}",
+                    judge_name="ConsensusJudge",
+                )
             return JudgeDecision(
                 verdict=Verdict.QUARANTINE,
                 confidence=max(d.confidence for d in rejects),
@@ -588,6 +572,24 @@ class MetaJudge:
                     WHERE judge_name = ? AND memory_type = '_all'
                 """, (jn,))
 
+        # Stamp per-event ground truth so calibration/accuracy stats activate.
+        # confirmed: APPROVE verdicts were right. false_positive: APPROVE was
+        # wrong (user deleted/corrected). false_negative: REJECT/QUARANTINE
+        # was wrong (user re-submitted).
+        correct_map = {
+            "confirmed":      ("verdict = 'APPROVE'", "verdict != 'APPROVE'"),
+            "false_positive": ("verdict != 'APPROVE'", "verdict = 'APPROVE'"),
+            "false_negative": ("verdict = 'APPROVE'", "verdict != 'APPROVE'"),
+        }
+        if feedback_type in correct_map:
+            right_cond, wrong_cond = correct_map[feedback_type]
+            self._conn.execute(
+                f"UPDATE meta_judge_events SET is_correct = 1 "
+                f"WHERE memory_id = ? AND {right_cond}", (memory_id,))
+            self._conn.execute(
+                f"UPDATE meta_judge_events SET is_correct = 0 "
+                f"WHERE memory_id = ? AND {wrong_cond}", (memory_id,))
+
         self._conn.commit()
         logger.info(f"MetaJudge feedback: {feedback_type} for memory {memory_id[:8]}")
 
@@ -724,44 +726,33 @@ class MetaJudge:
     def detect_drift(self) -> List[Dict[str, Any]]:
         """
         Detect behavioral drift in judges.
-        Compares recent window vs previous window for rejection rate changes.
+        Compares REJECT rate in the last 24h vs the previous 7 days.
         """
         if not self._conn:
             return []
-
+        now = time.time()
+        recent_start, prev_start = now - 86400, now - 8 * 86400   # last 24h vs previous 7 days
         alerts = []
         judges = [r[0] for r in self._conn.execute(
-            "SELECT DISTINCT judge_name FROM meta_judge_events"
-        ).fetchall()]
-
+            "SELECT DISTINCT judge_name FROM meta_judge_events").fetchall()]
         for jn in judges:
-            rows = self._conn.execute("""
-                SELECT verdict FROM meta_judge_events
-                WHERE judge_name = ?
-                ORDER BY timestamp DESC LIMIT ?
-            """, (jn, self._drift_window_size * 2)).fetchall()
-
-            if len(rows) < self._drift_window_size * 2:
+            rows = self._conn.execute(
+                "SELECT verdict, timestamp FROM meta_judge_events "
+                "WHERE judge_name = ? AND timestamp >= ?", (jn, prev_start)).fetchall()
+            recent = [v for v, t in rows if t >= recent_start]
+            prev = [v for v, t in rows if t < recent_start]
+            if len(recent) < self._drift_window_size or len(prev) < self._drift_window_size:
                 continue
-
-            recent = rows[:self._drift_window_size]
-            previous = rows[self._drift_window_size:]
-
-            recent_reject_rate = sum(1 for (v,) in recent if v != "APPROVE") / len(recent)
-            prev_reject_rate = sum(1 for (v,) in previous if v != "APPROVE") / len(previous)
-            drift = abs(recent_reject_rate - prev_reject_rate)
-
+            rr = sum(v == "REJECT" for v in recent) / len(recent)
+            pr = sum(v == "REJECT" for v in prev) / len(prev)
+            drift = abs(rr - pr)
             if drift > self._drift_threshold:
-                direction = "more_restrictive" if recent_reject_rate > prev_reject_rate else "more_permissive"
                 alerts.append({
-                    "judge": jn,
-                    "drift": round(drift, 3),
-                    "direction": direction,
-                    "recent_reject_rate": round(recent_reject_rate, 3),
-                    "previous_reject_rate": round(prev_reject_rate, 3),
+                    "judge": jn, "drift": round(drift, 3),
+                    "direction": "more_restrictive" if rr > pr else "more_permissive",
+                    "recent_reject_rate": round(rr, 3), "previous_reject_rate": round(pr, 3),
                     "severity": "high" if drift > 0.3 else "medium",
                 })
-
         return alerts
 
     # ── THRESHOLD TUNING RECOMMENDATIONS ──
@@ -787,7 +778,7 @@ class MetaJudge:
 
             fp_rate = fp / total if total else 0
             fn_rate = fn / total if total else 0
-            reject_rate = (v_quar + v_rej) / total if total else 0
+            reject_rate = v_rej / total if total else 0
 
             # Too many false positives → judge is too permissive
             if fp_rate > 0.1:
@@ -952,6 +943,7 @@ class MemoryJury:
         memory_id: str = "",
         episode_timestamp: float = 0,
         existing_contents: Optional[List[str]] = None,
+        bulk: bool = False,
         **kwargs,
     ) -> JudgeDecision:
         """
@@ -968,7 +960,7 @@ class MemoryJury:
         quality_d = self.quality.evaluate(content, memory_type=memory_type,
                                           existing_contents=existing_contents)
         temporal_d = self.temporal.evaluate(content, memory_type=memory_type,
-                                            episode_timestamp=episode_timestamp)
+                                            episode_timestamp=episode_timestamp, bulk=bulk)
 
         all_decisions = [safety_d, quality_d, temporal_d]
         final = self.consensus.aggregate(all_decisions)

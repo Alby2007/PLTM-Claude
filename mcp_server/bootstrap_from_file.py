@@ -62,7 +62,7 @@ async def main():
     # Show personality
     from src.personality.personality_synthesizer import PersonalitySynthesizer
     synth = PersonalitySynthesizer(bootstrapper.store)
-    personality = await synth.synthesize_personality("alby")
+    personality = await synth.synthesize_personality("claude")
     
     print("\nPERSONALITY PROFILE:")
     print(json.dumps(personality, indent=2))
