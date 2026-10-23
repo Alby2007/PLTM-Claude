@@ -38,6 +38,22 @@ async def handle_store_typed(args: Dict[str, Any], mem_type: str) -> List[TextCo
 
     mem_id = await R.typed_memory_store.store(mem)
 
+    if not mem_id:
+        # Jury REJECT (store() returns "") — report the verdict honestly
+        d = getattr(mem, "jury_decision", None)
+        rejector = next(
+            (v.judge_name for v in getattr(d, "votes", [])
+             if v.verdict.value == "REJECT"), None)
+        return [TextContent(type="text", text=compact_json({
+            "stored": False,
+            "id": "",
+            "type": mem_type,
+            "content": mem.content[:100],
+            "verdict": d.verdict.value if d else "REJECT",
+            "judge": rejector or (d.judge_name if d else ""),
+            "explanation": d.explanation if d else "Rejected by jury",
+        }))]
+
     return [TextContent(type="text", text=compact_json({
         "stored": True,
         "id": mem_id,

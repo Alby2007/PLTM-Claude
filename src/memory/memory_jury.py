@@ -43,6 +43,7 @@ class JudgeDecision:
     confidence: float  # 0.0-1.0
     explanation: str
     judge_name: str
+    votes: List["JudgeDecision"] = field(default_factory=list)
 
 
 # ============================================================
@@ -545,9 +546,14 @@ class MetaJudge:
         when the same content is re-submitted.
 
         feedback_type:
-          - 'false_positive': memory was approved but user deleted/corrected it
-          - 'false_negative': memory was rejected but user re-submitted it
-          - 'confirmed': user explicitly confirmed memory is correct
+          - 'confirmed': user explicitly confirmed memory is correct —
+            APPROVE voters marked correct, others wrong
+          - 'false_positive': memory was approved but user deleted/corrected
+            it — APPROVE voters marked wrong, others correct
+          - 'false_negative': memory was rejected but user re-submitted it —
+            REJECT/QUARANTINE voters marked wrong, APPROVE voters correct
+          - 'rejection_confirmed': user agrees the REJECT/QUARANTINE was
+            right — non-APPROVE voters marked correct, APPROVE voters wrong
         """
         if not self._conn:
             return
@@ -610,11 +616,13 @@ class MetaJudge:
         # Stamp per-event ground truth so calibration/accuracy stats activate.
         # confirmed: APPROVE verdicts were right. false_positive: APPROVE was
         # wrong (user deleted/corrected). false_negative: REJECT/QUARANTINE
-        # was wrong (user re-submitted).
+        # was wrong (user re-submitted). rejection_confirmed: user agrees the
+        # REJECT/QUARANTINE was right — non-approvers were correct.
         correct_map = {
-            "confirmed":      ("verdict = 'APPROVE'", "verdict != 'APPROVE'"),
-            "false_positive": ("verdict != 'APPROVE'", "verdict = 'APPROVE'"),
-            "false_negative": ("verdict = 'APPROVE'", "verdict != 'APPROVE'"),
+            "confirmed":           ("verdict = 'APPROVE'", "verdict != 'APPROVE'"),
+            "false_positive":      ("verdict != 'APPROVE'", "verdict = 'APPROVE'"),
+            "false_negative":      ("verdict = 'APPROVE'", "verdict != 'APPROVE'"),
+            "rejection_confirmed": ("verdict != 'APPROVE'", "verdict = 'APPROVE'"),
         }
         if feedback_type in correct_map:
             right_cond, wrong_cond = correct_map[feedback_type]
@@ -1001,6 +1009,7 @@ class MemoryJury:
 
         all_decisions = [safety_d, quality_d, temporal_d]
         final = self.consensus.aggregate(all_decisions)
+        final.votes = all_decisions
 
         elapsed_ms = (time.time() - t0) * 1000
 

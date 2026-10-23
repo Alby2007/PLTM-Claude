@@ -138,6 +138,67 @@ class TestContentHashAttribution:
         assert fn["ConsensusJudge"] >= 1
 
 
+class TestStoreToolReporting:
+    @pytest.mark.asyncio
+    async def test_jury_reject_reports_stored_false(self, store, monkeypatch):
+        """store tools must not claim stored:true when the jury REJECTs."""
+        import json
+        from mcp_server.handlers import memory_handlers
+
+        s, jury = store
+        monkeypatch.setattr(memory_handlers.R, "typed_memory_store", s)
+
+        res = await memory_handlers.handle_store_typed(
+            {"user_id": "t", "content": "password: abc123"}, "semantic")
+        payload = json.loads(res[0].text)
+        assert payload["stored"] is False
+        assert payload["id"] == ""
+        assert payload["verdict"] == "REJECT"
+        assert payload["judge"] == "SafetyJudge"
+        assert "Password" in payload["explanation"]
+
+    @pytest.mark.asyncio
+    async def test_jury_approve_still_reports_stored(self, store, monkeypatch):
+        import json
+        from mcp_server.handlers import memory_handlers
+
+        s, jury = store
+        monkeypatch.setattr(memory_handlers.R, "typed_memory_store", s)
+
+        res = await memory_handlers.handle_store_typed(
+            {"user_id": "t", "content": "the water cycle repeats"}, "semantic")
+        payload = json.loads(res[0].text)
+        assert payload["stored"] is True
+        assert payload["id"]
+
+
+class TestRejectionConfirmed:
+    @pytest.mark.asyncio
+    async def test_rejection_confirmed_marks_rejecters_right(self, store):
+        s, jury = store
+        content = "password: hunter2"
+        mid = await s.store(make(MemoryType.SEMANTIC, content=content))
+        assert mid == ""
+        h = hashlib.sha1(content.strip().lower().encode()).hexdigest()
+
+        jury.record_feedback(content_hash=h,
+                             feedback_type="rejection_confirmed")
+
+        conn = sqlite3.connect(s.db_path)
+        rows = conn.execute(
+            "SELECT judge_name, verdict, is_correct FROM meta_judge_events "
+            "WHERE content_hash = ?", (h,)).fetchall()
+        conn.close()
+
+        by_judge = {jn: (v, c) for jn, v, c in rows}
+        # SafetyJudge + ConsensusJudge voted REJECT -> correct
+        assert by_judge["SafetyJudge"] == ("REJECT", 1)
+        assert by_judge["ConsensusJudge"] == ("REJECT", 1)
+        # QualityJudge + TemporalJudge voted APPROVE -> wrong
+        assert by_judge["QualityJudge"] == ("APPROVE", 0)
+        assert by_judge["TemporalJudge"] == ("APPROVE", 0)
+
+
 class TestSchemaMigration:
     def test_existing_db_gains_content_hash_column(self, tmp_path):
         db = str(tmp_path / "old.db")

@@ -1866,14 +1866,21 @@ async def list_tools() -> List[Tool]:
         
         Tool(
             name="jury_feedback",
-            description="Record ground truth feedback for MetaJudge training. Pass feedback_type: 'false_positive', 'false_negative', or 'confirmed'.",
+            description=("Record ground truth feedback for MetaJudge training. "
+                         "feedback_type semantics: 'confirmed' = approved memory was right "
+                         "(approvers correct); 'false_positive' = approved memory was wrong "
+                         "(approvers wrong); 'false_negative' = rejected memory should have "
+                         "been stored (rejecters wrong); 'rejection_confirmed' = rejected/"
+                         "quarantined memory was correctly blocked (rejecters correct, "
+                         "approvers wrong). Match by memory_id, or content_hash for "
+                         "memories that were never stored."),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "memory_id": {"type": "string", "description": "Memory ID to give feedback on"},
                     "atom_id": {"type": "string", "description": "Alias for memory_id"},
                     "content_hash": {"type": "string", "description": "sha1 of the memory's content — matches REJECTed memories that were never stored"},
-                    "feedback_type": {"type": "string", "enum": ["false_positive", "false_negative", "confirmed"], "description": "REQUIRED: false_positive, false_negative, or confirmed"},
+                    "feedback_type": {"type": "string", "enum": ["false_positive", "false_negative", "confirmed", "rejection_confirmed"], "description": "REQUIRED: one of the four feedback types"},
                     "correct": {"type": "boolean", "description": "Alternative: true→confirmed, false→false_positive"},
                     "details": {"type": "string"},
                 },

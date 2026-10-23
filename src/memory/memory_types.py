@@ -280,7 +280,8 @@ class TypedMemoryStore:
                 existing_contents=existing,
                 bulk=bulk,
             )
-            
+            mem.jury_decision = decision  # let callers report the outcome
+
             if decision.verdict == Verdict.REJECT:
                 logger.warning(f"Jury REJECTED memory: {decision.explanation} — content: {mem.content[:80]}")
                 return ""  # Empty ID signals rejection
