@@ -15,6 +15,7 @@ Verdicts: APPROVE | QUARANTINE | REJECT
 - REJECT: memory not stored, reason logged
 """
 
+import hashlib
 import re
 import time
 import asyncio
@@ -408,6 +409,7 @@ class MetaJudge:
                 latency_ms REAL DEFAULT 0,
                 memory_type TEXT DEFAULT '',
                 memory_id TEXT DEFAULT '',
+                content_hash TEXT DEFAULT '',
                 ground_truth TEXT DEFAULT NULL,
                 is_correct INTEGER DEFAULT NULL
             );
@@ -438,11 +440,24 @@ class MetaJudge:
                 PRIMARY KEY (judge_name, memory_type)
             );
 
+        """)
+        # Guarded migration for pre-existing DBs lacking content_hash
+        # (must precede the index on that column).
+        cols = {r[1] for r in self._conn.execute(
+            "PRAGMA table_info(meta_judge_events)")}
+        if "content_hash" not in cols:
+            self._conn.execute(
+                "ALTER TABLE meta_judge_events "
+                "ADD COLUMN content_hash TEXT DEFAULT ''")
+        self._conn.executescript("""
             CREATE INDEX IF NOT EXISTS idx_mj_events_judge
             ON meta_judge_events(judge_name, timestamp);
 
             CREATE INDEX IF NOT EXISTS idx_mj_events_memory
             ON meta_judge_events(memory_id);
+
+            CREATE INDEX IF NOT EXISTS idx_mj_events_hash
+            ON meta_judge_events(content_hash);
 
             CREATE INDEX IF NOT EXISTS idx_mj_feedback_memory
             ON meta_judge_feedback(memory_id);
@@ -462,7 +477,8 @@ class MetaJudge:
 
     def track(self, decision: JudgeDecision, latency_ms: float = 0.0,
               memory_type: str = "", memory_id: str = "",
-              ground_truth: Optional[Verdict] = None):
+              ground_truth: Optional[Verdict] = None,
+              content_hash: str = ""):
         """Track a judge evaluation with optional memory type and ground truth."""
         now = time.time()
         is_correct = None
@@ -477,6 +493,7 @@ class MetaJudge:
             "latency_ms": latency_ms,
             "memory_type": memory_type,
             "memory_id": memory_id,
+            "content_hash": content_hash,
             "timestamp": now,
         }
         self._in_memory_history.append(event)
@@ -487,11 +504,12 @@ class MetaJudge:
             self._conn.execute("""
                 INSERT INTO meta_judge_events
                 (timestamp, judge_name, verdict, confidence, explanation,
-                 latency_ms, memory_type, memory_id, ground_truth, is_correct)
-                VALUES (?,?,?,?,?,?,?,?,?,?)
+                 latency_ms, memory_type, memory_id, content_hash,
+                 ground_truth, is_correct)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
             """, (now, decision.judge_name, decision.verdict.value,
                   decision.confidence, decision.explanation, latency_ms,
-                  memory_type, memory_id,
+                  memory_type, memory_id, content_hash,
                   ground_truth.value if ground_truth else None, is_correct))
 
             # Update aggregate stats for _all and specific memory_type
@@ -517,10 +535,14 @@ class MetaJudge:
 
     # ── GROUND TRUTH FEEDBACK ──
 
-    def record_feedback(self, memory_id: str, feedback_type: str,
-                        details: str = ""):
+    def record_feedback(self, memory_id: str = "", feedback_type: str = "",
+                        details: str = "", content_hash: str = ""):
         """
         Record ground truth feedback from user actions.
+
+        Match events by memory_id and/or content_hash. content_hash makes
+        feedback on REJECTed memories (never assigned a stored id) matchable
+        when the same content is re-submitted.
 
         feedback_type:
           - 'false_positive': memory was approved but user deleted/corrected it
@@ -530,12 +552,25 @@ class MetaJudge:
         if not self._conn:
             return
 
+        # Build event-match clause from whichever keys were provided.
+        # Empty keys must not match (legacy rows have memory_id = '').
+        conds, params = [], []
+        if memory_id:
+            conds.append("memory_id = ?")
+            params.append(memory_id)
+        if content_hash:
+            conds.append("content_hash = ?")
+            params.append(content_hash)
+        if not conds:
+            return
+        where = "(" + " OR ".join(conds) + ")"
+
         # Find the original verdict for this memory
-        row = self._conn.execute("""
+        row = self._conn.execute(f"""
             SELECT judge_name, verdict FROM meta_judge_events
-            WHERE memory_id = ? AND judge_name = 'ConsensusJudge'
+            WHERE {where} AND judge_name = 'ConsensusJudge'
             ORDER BY timestamp DESC LIMIT 1
-        """, (memory_id,)).fetchone()
+        """, params).fetchone()
 
         original_verdict = row[1] if row else "UNKNOWN"
         original_judge = row[0] if row else ""
@@ -544,15 +579,15 @@ class MetaJudge:
             INSERT INTO meta_judge_feedback
             (timestamp, memory_id, feedback_type, original_verdict, original_judge, details)
             VALUES (?,?,?,?,?,?)
-        """, (time.time(), memory_id, feedback_type, original_verdict,
-              original_judge, details))
+        """, (time.time(), memory_id or f"hash:{content_hash}",
+              feedback_type, original_verdict, original_judge, details))
 
         # Update false positive/negative counts for all judges that evaluated this memory
         if feedback_type == "false_positive":
-            judges = self._conn.execute("""
+            judges = self._conn.execute(f"""
                 SELECT DISTINCT judge_name FROM meta_judge_events
-                WHERE memory_id = ? AND verdict = 'APPROVE'
-            """, (memory_id,)).fetchall()
+                WHERE {where} AND verdict = 'APPROVE'
+            """, params).fetchall()
             for (jn,) in judges:
                 self._ensure_stats_row(jn)
                 self._conn.execute("""
@@ -561,10 +596,10 @@ class MetaJudge:
                 """, (jn,))
 
         elif feedback_type == "false_negative":
-            judges = self._conn.execute("""
+            judges = self._conn.execute(f"""
                 SELECT DISTINCT judge_name FROM meta_judge_events
-                WHERE memory_id = ? AND verdict IN ('REJECT', 'QUARANTINE')
-            """, (memory_id,)).fetchall()
+                WHERE {where} AND verdict IN ('REJECT', 'QUARANTINE')
+            """, params).fetchall()
             for (jn,) in judges:
                 self._ensure_stats_row(jn)
                 self._conn.execute("""
@@ -585,13 +620,15 @@ class MetaJudge:
             right_cond, wrong_cond = correct_map[feedback_type]
             self._conn.execute(
                 f"UPDATE meta_judge_events SET is_correct = 1 "
-                f"WHERE memory_id = ? AND {right_cond}", (memory_id,))
+                f"WHERE {where} AND {right_cond}", params)
             self._conn.execute(
                 f"UPDATE meta_judge_events SET is_correct = 0 "
-                f"WHERE memory_id = ? AND {wrong_cond}", (memory_id,))
+                f"WHERE {where} AND {wrong_cond}", params)
 
         self._conn.commit()
-        logger.info(f"MetaJudge feedback: {feedback_type} for memory {memory_id[:8]}")
+        logger.info(
+            f"MetaJudge feedback: {feedback_type} for "
+            f"{memory_id[:8] if memory_id else 'hash:' + content_hash[:8]}")
 
     # ── ADAPTIVE JUDGE WEIGHTING ──
 
@@ -967,13 +1004,18 @@ class MemoryJury:
 
         elapsed_ms = (time.time() - t0) * 1000
 
-        # Track in MetaJudge (with memory_type and memory_id)
+        # Track in MetaJudge (with memory_type, memory_id, and content_hash —
+        # the hash lets feedback match REJECTed memories that got no stored id)
         if self.meta:
+            content_hash = hashlib.sha1(
+                content.strip().lower().encode("utf-8")).hexdigest()
             for d in all_decisions:
                 self.meta.track(d, latency_ms=elapsed_ms / len(all_decisions),
-                                memory_type=memory_type, memory_id=memory_id)
+                                memory_type=memory_type, memory_id=memory_id,
+                                content_hash=content_hash)
             self.meta.track(final, latency_ms=elapsed_ms,
-                            memory_type=memory_type, memory_id=memory_id)
+                            memory_type=memory_type, memory_id=memory_id,
+                            content_hash=content_hash)
 
         logger.debug(
             f"MemoryJury #{self.deliberation_count}: {final.verdict.value} "
@@ -982,10 +1024,13 @@ class MemoryJury:
 
         return final
 
-    def record_feedback(self, memory_id: str, feedback_type: str, details: str = ""):
+    def record_feedback(self, memory_id: str = "", feedback_type: str = "",
+                        details: str = "", content_hash: str = ""):
         """Forward ground truth feedback to MetaJudge."""
         if self.meta:
-            self.meta.record_feedback(memory_id, feedback_type, details)
+            self.meta.record_feedback(
+                memory_id=memory_id, feedback_type=feedback_type,
+                details=details, content_hash=content_hash)
 
     def get_stats(self) -> Dict[str, Any]:
         result = {

@@ -23,6 +23,7 @@ Orchestrator: TypedMemoryPipeline
 
 import re
 import time
+from uuid import uuid4
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
@@ -480,6 +481,11 @@ class TypedMemoryPipeline:
             mem = ext.memory
 
             if self.jury:
+                # Pre-assign the memory id so jury events can be attributed
+                # to it; store() reuses this id when persisting.
+                if not mem.id:
+                    mem.id = str(uuid4())
+
                 # Gather existing contents for dedup
                 existing_contents = []
                 try:
@@ -495,6 +501,7 @@ class TypedMemoryPipeline:
                 decision = self.jury.deliberate(
                     content=mem.content,
                     memory_type=mem.memory_type.value,
+                    memory_id=mem.id,
                     episode_timestamp=mem.episode_timestamp,
                     existing_contents=existing_contents,
                     bulk=bulk,

@@ -275,6 +275,7 @@ class TypedMemoryStore:
             decision = self.jury.deliberate(
                 content=mem.content,
                 memory_type=mem.memory_type.value,
+                memory_id=mem.id,
                 episode_timestamp=mem.episode_timestamp,
                 existing_contents=existing,
                 bulk=bulk,

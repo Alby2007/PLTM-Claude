@@ -1872,6 +1872,7 @@ async def list_tools() -> List[Tool]:
                 "properties": {
                     "memory_id": {"type": "string", "description": "Memory ID to give feedback on"},
                     "atom_id": {"type": "string", "description": "Alias for memory_id"},
+                    "content_hash": {"type": "string", "description": "sha1 of the memory's content — matches REJECTed memories that were never stored"},
                     "feedback_type": {"type": "string", "enum": ["false_positive", "false_negative", "confirmed"], "description": "REQUIRED: false_positive, false_negative, or confirmed"},
                     "correct": {"type": "boolean", "description": "Alternative: true→confirmed, false→false_positive"},
                     "details": {"type": "string"},
@@ -5232,10 +5233,12 @@ async def handle_jury_feedback(args: Dict[str, Any]) -> List[TextContent]:
     if not typed_memory_store or not typed_memory_store.jury:
         return [TextContent(type="text", text=compact_json({"error": "Jury not initialized"}))]
     
-    # Accept 'atom_id' or 'id' as alias for 'memory_id'
+    # Accept 'atom_id' or 'id' as alias for 'memory_id';
+    # 'content_hash' matches REJECTed memories that were never stored
     memory_id = args.get("memory_id") or args.get("atom_id") or args.get("id", "")
-    if not memory_id:
-        return [TextContent(type="text", text=compact_json({"error": "'memory_id' is required"}))]
+    content_hash = args.get("content_hash", "")
+    if not memory_id and not content_hash:
+        return [TextContent(type="text", text=compact_json({"error": "'memory_id' or 'content_hash' is required"}))]
     
     # Resolve feedback_type from multiple possible params
     feedback_type = args.get("feedback_type")
@@ -5251,11 +5254,13 @@ async def handle_jury_feedback(args: Dict[str, Any]) -> List[TextContent]:
         memory_id=memory_id,
         feedback_type=feedback_type,
         details=args.get("details", ""),
+        content_hash=content_hash,
     )
-    
+
     return [TextContent(type="text", text=compact_json({
         "status": "recorded",
         "memory_id": memory_id,
+        "content_hash": content_hash,
         "feedback_type": feedback_type,
         "adaptive_weights": typed_memory_store.jury.meta.get_adaptive_weights() if typed_memory_store.jury.meta else {},
     }))]
